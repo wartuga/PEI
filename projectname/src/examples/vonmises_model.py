@@ -1,8 +1,7 @@
 import numpy as np
 from scipy.stats import vonmises
 import time
-import utils
-import matplotlib.pyplot as plt
+import projectname.src.utils.utils as utils
 
 model = """
 data {
@@ -33,12 +32,8 @@ model_data = {'N': len(data), 'values': data, 'kappa': kappa_real}
 init = [{'mu': float(mu_real)} for _ in range(4)]
 
 start_time = time.time()
-interest_parameter_values = utils.get_pystan_statistics(model_data=model_data, model=model, parameter='mu', sample_amount=10000, init=init)
+interest_parameter_values = utils.get_pystan_statistics(model_data=model_data, model=model, parameter='mu', sample_amount=100000, init=init)
 
 print(f"Time taken: {time.time() - start_time:.2f} seconds")
 
-plt.hist(interest_parameter_values, bins=30, density=True, alpha=0.6)
-
-plt.show()
-
-#utils.circular_graphic(interest_parameter_values, data, min_value=0.7, max_value=0.9)
+utils.circular_graphic(interest_parameter_values, data, min_val=0.7, max_val=0.9, density=True)
