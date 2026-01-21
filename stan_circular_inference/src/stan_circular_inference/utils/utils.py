@@ -31,27 +31,47 @@ def _get_percentiles(param, confidence_interval = 2.5, round_to=2):
       'hdi_50%': np.percentile(param, 50).round(round_to)
   })
 
-def get_pystan_statistics(model_data, model, parameter, confidence_interval=11, sample_amount=50000, init=None):
+"""
+TODO: passar a ser uma função das classes e não do utils
+"""
+def build_model(model, model_data):
   """
-  Function to refactor, it does:
-  - Build the model
-  - Get the fit of the model
-  - Search for the intereset parameter values in the chains (TODO: more than 1 interest parameter)
-  - Get the ArviZ summary and costumize it with the desired confidence interval
-  - Prints the summary
-  - Return the values of the interest parameter from the chains
+  Build the model
+  
+  :param model: Stan model to build
+  :param model_data: Model arguments
   """
 
-  # Build the model
-  posterior = stan.build(model, data=model_data)
+  try:
+    return stan.build(model, data=model_data)
+  
+  except Exception as e:
+    if type(e) is TypeError:
+      raise TypeError("Wrong parameter format for the model!")
+    print(type(e))
+    print("Error:", e)
 
+def get_samples(posterior, sample_amount=50000, init=None):
+  """
+  Get the fit of the model
+  
+  :param posterior: Description
+  :param sample_amount: Description
+  :param init: Description
+  """
   # Sample from the posterior model
-  fit = None
   if init:
-    fit = posterior.sample(num_chains=4, num_samples=sample_amount, init=init)
+    return posterior.sample(num_chains=4, num_samples=sample_amount, init=init)
   else:
-    fit = posterior.sample(num_chains=4, num_samples=sample_amount)
+    return posterior.sample(num_chains=4, num_samples=sample_amount)
 
+def get_values(fit, parameter):
+  """
+  Search for the intereset parameter values in the chains (TODO: more than 1 interest parameter)
+  
+  :param fit: Description
+  :param parameter: Description
+  """
   interest_parameter_values = []
   chains = fit.stan_outputs
 
@@ -65,7 +85,17 @@ def get_pystan_statistics(model_data, model, parameter, confidence_interval=11, 
         interest_parameter = values[parameter]
         
         interest_parameter_values.append(interest_parameter)
+  
+  return interest_parameter_values
 
+def get_statistics(fit, confidence_interval=11):
+  """
+  Get the ArviZ summary and costumize it with the desired confidence interval
+  
+  :param fit: Description
+  :param confifence_interval: Description
+  :param round_to: Description
+  """
   # Convert to ArviZ InferenceData object
   az_data = az.from_pystan(fit)
 
@@ -101,8 +131,12 @@ def get_pystan_statistics(model_data, model, parameter, confidence_interval=11, 
   
   else:
     print(summary_df)
-
-  return interest_parameter_values
+  
+def get_pystan_statistics(model_data, model, parameter, confidence_interval=11, sample_amount=50000, init=None):
+  posterior = build_model(model, model_data)
+  fit = get_samples(posterior, sample_amount, init)
+  get_statistics(fit, confidence_interval)
+  return get_values(fit, parameter)
 
 def get_nutpie_statistics(trace, confidence_interval=30):
   """

@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools == 80.9.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stan_circular_inference"
+version = "0.0.1a4"
+authors = [
+  { name="wartuga", email="diogoalmeida107@hotmail.com" },
+]
+description = "A publish test"
+readme = "README.md"
+requires-python = ">=3.10, <3.11"
+classifiers = [
+    "Programming Language :: Python :: 3.10",
+    "Operating System :: POSIX :: Linux",
+]
+dependencies = [
+    "setuptools<81.0",
+    "numpy==2.2.6",
+    "pandas==2.3.3",
+    "scipy==1.15.3",
+    "arviz==0.22.0",
+    "matplotlib==3.10.7",
+    "pystan==3.10.0",
+]
+license = {text = "MIT"}
+
+[project.urls]
+Homepage = "https://github.com/wartuga/PEI"
+Issues = "https://github.com/wartuga/PEI/issues"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = {find = {where = ["src"]}}

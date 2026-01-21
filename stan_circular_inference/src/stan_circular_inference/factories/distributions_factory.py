@@ -1,4 +1,4 @@
-from projectname.src.factories.parameters_factory import MeanParameter, VarianceParameter
+from src.stan_circular_inference.factories.parameters_factory import MeanParameter, VarianceParameter
 
 class Normal(MeanParameter):
     def __init__(self, mu: float = 0, sigma: float = 10):
@@ -43,6 +43,40 @@ class Exponential(VarianceParameter):
     def __str__(self):
         return f"Exponential(lambda={self.lambda_})"
 
-# TODO
-# Poisson
-# Bernoulli
+# TODO testar
+class Bernoulli(MeanParameter):
+    """Distribuição Bernoulli para variáveis binárias (0 ou 1)"""
+    
+    def __init__(self, p: float = 0.5):
+        """
+        Args:
+            p: Probabilidade de sucesso (entre 0 e 1)
+        """
+        if not 0 <= p <= 1:
+            raise ValueError(f"Parâmetro p deve estar entre 0 e 1, recebido: {p}")
+        self.p = p
+    
+    def get_code(self) -> str:
+        return f'bernoulli({self.p})'
+    
+    def __str__(self):
+        return f'Bernoulli(p={self.p})'
+
+# TODO testar
+class Poisson(MeanParameter):
+    """Distribuição Poisson para dados de contagem"""
+    
+    def __init__(self, lambda_: float = 1.0):
+        """
+        Args:
+            lambda_: Taxa média de ocorrências (deve ser > 0)
+        """
+        if lambda_ <= 0:
+            raise ValueError(f"Lambda deve ser positivo, recebido: {lambda_}")
+        self.lambda_ = lambda_
+    
+    def get_code(self) -> str:
+        return f'poisson({self.lambda_})'
+    
+    def __str__(self):
+        return f'Poisson(lambda={self.lambda_})'

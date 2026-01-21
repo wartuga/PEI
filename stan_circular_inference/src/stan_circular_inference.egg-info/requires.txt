@@ -1,0 +1,7 @@
+setuptools<81.0
+numpy==2.2.6
+pandas==2.3.3
+scipy==1.15.3
+arviz==0.22.0
+matplotlib==3.10.7
+pystan==3.10.0

@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.stats import vonmises
 import time
-import projectname.src.utils.utils as utils
+import stan_circular_inference.src.stan_circular_inference.utils.utils as utils
 
 model = """
 data {

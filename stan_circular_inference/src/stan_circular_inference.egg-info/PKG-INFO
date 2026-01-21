@@ -1,0 +1,21 @@
+Metadata-Version: 2.4
+Name: stan_circular_inference
+Version: 0.0.1a4
+Summary: A publish test
+Author-email: wartuga <diogoalmeida107@hotmail.com>
+License: MIT
+Project-URL: Homepage, https://github.com/wartuga/PEI
+Project-URL: Issues, https://github.com/wartuga/PEI/issues
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Operating System :: POSIX :: Linux
+Requires-Python: <3.11,>=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+Requires-Dist: setuptools<81.0
+Requires-Dist: numpy==2.2.6
+Requires-Dist: pandas==2.3.3
+Requires-Dist: scipy==1.15.3
+Requires-Dist: arviz==0.22.0
+Requires-Dist: matplotlib==3.10.7
+Requires-Dist: pystan==3.10.0
+Dynamic: license-file
