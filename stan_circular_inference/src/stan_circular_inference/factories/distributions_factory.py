@@ -1,4 +1,4 @@
-from src.stan_circular_inference.factories.parameters_factory import MeanParameter, VarianceParameter
+from stan_circular_inference.factories.parameters_factory import MeanParameter, VarianceParameter
 
 class Normal(MeanParameter):
     def __init__(self, mu: float = 0, sigma: float = 10):

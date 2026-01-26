@@ -50,8 +50,8 @@ model {
 }
 """
 
-mu1 = -np.pi/4
-mu2 = np.pi/4
+mu1 = np.pi/2
+mu2 = -np.pi/2
 kappa = 5
 size = 100
 
@@ -62,6 +62,6 @@ samples = np.concatenate([samples1, samples2])
 np.random.shuffle(samples)
 
 data = {'N': len(samples), 'values': samples, 'mixing_weight': 0.5}
-values = utils.get_pystan_statistics(model=model, model_data=data, parameters=['mu1', 'mu2'])
+values = utils.get_pystan_statistics(model=model, model_data=data, parameters=['mu1', 'mu2'], sample_amount=1000)
 utils.circular_graphic(values['mu1'], min_val=0, max_val=2*np.pi)
 utils.circular_graphic(values['mu2'], min_val=0, max_val=2*np.pi)

@@ -1,5 +1,5 @@
-from src.stan_circular_inference.factories.model_factory import ProbabilisticModel
-from src.stan_circular_inference.factories.parameters_factory import MeanParameter, VarianceParameter
+from stan_circular_inference.factories.model_factory import ProbabilisticModel
+from stan_circular_inference.factories.parameters_factory import MeanParameter, VarianceParameter
 from typing import Dict, Any
 
 class VonMises_MK(ProbabilisticModel):

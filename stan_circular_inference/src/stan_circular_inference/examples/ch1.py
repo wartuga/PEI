@@ -1,4 +1,4 @@
-import stan_circular_inference.src.stan_circular_inference.utils.utils as utils
+import stan_circular_inference.utils.utils as utils
 import numpy as np
 import time
 

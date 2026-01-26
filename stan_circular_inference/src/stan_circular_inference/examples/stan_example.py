@@ -3,7 +3,7 @@ import asyncio
 import arviz as az
 import pandas as pd
 import nest_asyncio
-import stan_circular_inference.src.stan_circular_inference.utils.utils as utils
+import stan_circular_inference.utils.utils as utils
 
 # Needed to run the code using a WSL terminal or WSL extension in VSCode
 # It allows nested event loops to run

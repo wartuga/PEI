@@ -2,9 +2,9 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")))
 
-from src.stan_circular_inference.factories.vonmises_factory import VonMises_MK, VonMises_M
-from src.stan_circular_inference.factories.distributions_factory import Uniform, Exponential
-from src.stan_circular_inference.utils import utils
+from stan_circular_inference.factories.vonmises_factory import VonMises_MK, VonMises_M
+from stan_circular_inference.factories.distributions_factory import Uniform, Exponential
+from stan_circular_inference.utils import utils
 import numpy as np
 import pandas as pd
 import time
@@ -26,11 +26,11 @@ def run():
 
     start_time = time.time()
 
-    interest_parameter_values = utils.get_pystan_statistics(model_data=model1_data, model=model1.gen_stan_model(), parameter='mu', sample_amount=1000)
+    interest_parameter_values = utils.get_pystan_statistics(model_data=model1_data, model=model1.gen_stan_model(), parameters=['mu', 'kappa'], sample_amount=1000)
 
     print("--- %s seconds ---" % (time.time() - start_time))
 
-    utils.circular_graphic(interest_parameter_values, min_val=0, max_val=2*np.pi)
+    utils.circular_graphic(interest_parameter_values['mu'], min_val=0, max_val=2*np.pi)
 
 if __name__ == "__main__":
     run()

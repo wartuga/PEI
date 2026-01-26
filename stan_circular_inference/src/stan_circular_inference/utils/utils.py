@@ -65,28 +65,32 @@ def get_samples(posterior, sample_amount=50000, init=None):
   else:
     return posterior.sample(num_chains=4, num_samples=sample_amount)
 
-def get_values(fit, parameter):
+def get_values(fit, parameters):
   """
   Search for the intereset parameter values in the chains (TODO: more than 1 interest parameter)
   
   :param fit: Description
-  :param parameter: Description
+  :param parameters: Description
   """
-  interest_parameter_values = []
+
+  vals = {}
   chains = fit.stan_outputs
 
-  for chain in chains:
-    lines = chain.decode('utf-8').strip().split('\n')
+  for parameter in parameters:
+    vals[parameter] = []
 
-    for line in lines:
-      data = json.loads(line)
-      values = data['values']
-      if data['topic'] == 'sample' and isinstance(values, dict):
-        interest_parameter = values[parameter]
-        
-        interest_parameter_values.append(interest_parameter)
+    for chain in chains:
+      lines = chain.decode('utf-8').strip().split('\n')
+
+      for line in lines:
+        data = json.loads(line)
+        values = data['values']
+        if data['topic'] == 'sample' and isinstance(values, dict):
+          interest_parameter = values[parameter]
+          
+          vals[parameter].append(interest_parameter)
   
-  return interest_parameter_values
+  return vals
 
 def get_statistics(fit, confidence_interval=11):
   """
@@ -132,11 +136,11 @@ def get_statistics(fit, confidence_interval=11):
   else:
     print(summary_df)
   
-def get_pystan_statistics(model_data, model, parameter, confidence_interval=11, sample_amount=50000, init=None):
+def get_pystan_statistics(model_data, model, parameters, confidence_interval=11, sample_amount=50000, init=None):
   posterior = build_model(model, model_data)
   fit = get_samples(posterior, sample_amount, init)
   get_statistics(fit, confidence_interval)
-  return get_values(fit, parameter)
+  return get_values(fit, parameters)
 
 def get_nutpie_statistics(trace, confidence_interval=30):
   """
@@ -191,7 +195,7 @@ def get_nutpie_statistics(trace, confidence_interval=30):
     print(summary_df)
 
 # Auxiliary function to do the circular graph expansion
-def value_to_angle(value, min_val, max_val):
+def values_to_angles(values, min_val, max_val):
   """
   Auxiliary function that transforms the `value` in an angle of the correspondent interval between `min_val` and `max_val`
 
@@ -200,12 +204,14 @@ def value_to_angle(value, min_val, max_val):
   - `min_val` (float): minimum value of the interval
   - `max_val` (float): maximum value of the interval
   """
-  return value / (max_val - min_val) * 2 * np.pi
+  return [(((value - min_val) / (max_val - min_val)) % 1.0) * 2 * np.pi for value in values]
 
 # Creates a circular graph from min_val to max_val
 def circular_graphic(interest_parameter_values, n_intervals = 100, density = False, data = None, min_val = None, max_val = None):
   """
   Builds a circular graph based on the `interest_parameter_values` parameter
+
+  TODO fazer para vários parâmetros e juntar(?) no mesmo gráfico
 
   Parameters
   - `interest_parameter_values` (array): the values from the chains
@@ -227,8 +233,10 @@ def circular_graphic(interest_parameter_values, n_intervals = 100, density = Fal
   
   bins = np.linspace(min_val, max_val, n_intervals + 1)
 
+  transformed_values = values_to_angles(interest_parameter_values, min_val, max_val)
+
   # Calculate frequencies for each interval
-  frequencies, _ = np.histogram(interest_parameter_values, bins=bins)
+  frequencies, _ = np.histogram(transformed_values, bins=bins)
 
   # Create even angles for the 100 intervals
   angles = np.linspace(0, 2 * np.pi, n_intervals, endpoint=False)
@@ -245,7 +253,7 @@ def circular_graphic(interest_parameter_values, n_intervals = 100, density = Fal
 
   if density:
     # Adjust KDE (Kernel Density Estimation) to the data
-    kde = gaussian_kde(interest_parameter_values)
+    kde = gaussian_kde(transformed_values)
     
     # Create numerous points to get a smoother graph
     n_smooth_points = 360
@@ -277,7 +285,7 @@ def circular_graphic(interest_parameter_values, n_intervals = 100, density = Fal
         bar.set_facecolor(plt.cm.viridis(i / n_intervals))
 
     # For bars, use the limit Y based on frequencies
-    y_max = max(frequencies) * 1.4
+    y_max = max(frequencies) * 1.1
     # Remove default labels from the radius
     ax.set_yticklabels([])
 
