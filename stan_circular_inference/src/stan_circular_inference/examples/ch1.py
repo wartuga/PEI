@@ -1,4 +1,4 @@
-import stan_circular_inference.utils.utils as utils
+import stan_circular_inference.src.stan_circular_inference.service.bayesian_inference as bayesian_inference
 import numpy as np
 import time
 
@@ -40,8 +40,8 @@ data = {'N': n_count_data, 'messages_count': count_data}
 
 start_time = time.time()
 
-interest_parameter_values = utils.get_pystan_statistics(data=data, model=model, sample_amount=20000)
+interest_parameter_values = bayesian_inference.get_pystan_statistics(data=data, model=model, sample_amount=20000)
 
 print("--- %s seconds ---" % (time.time() - start_time))
 
-utils.circular_graphic(interest_parameter_values, count_data, 24)
+bayesian_inference.circular_graphic(interest_parameter_values, count_data, 24)

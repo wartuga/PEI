@@ -3,7 +3,7 @@ import asyncio
 import arviz as az
 import pandas as pd
 import nest_asyncio
-import stan_circular_inference.utils.utils as utils
+import stan_circular_inference.src.stan_circular_inference.service.bayesian_inference as bayesian_inference
 
 # Needed to run the code using a WSL terminal or WSL extension in VSCode
 # It allows nested event loops to run
@@ -35,4 +35,4 @@ model {
 data = {'k1':5, 'n1':10, 'k2':7, 'n2':10}
 
 # Run and await the main async function
-asyncio.run(utils.get_pystan_statistics(data, model))
+asyncio.run(bayesian_inference.get_pystan_statistics(data, model))

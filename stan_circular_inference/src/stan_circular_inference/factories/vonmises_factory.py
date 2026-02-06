@@ -2,7 +2,7 @@ from stan_circular_inference.factories.model_factory import ProbabilisticModel
 from stan_circular_inference.factories.parameters_factory import MeanParameter, VarianceParameter
 from typing import Dict, Any
 
-class VonMises_MK(ProbabilisticModel):
+class VonMisesMK(ProbabilisticModel):
     def __init__(self, mu: MeanParameter, kappa: VarianceParameter):
         super().__init__("Von Mises")
         self.mu = mu
@@ -36,7 +36,7 @@ class VonMises_MK(ProbabilisticModel):
             'kappa': str(self.kappa)
         }
     
-class VonMises_M(ProbabilisticModel):
+class VonMisesM(ProbabilisticModel):
     def __init__(self, mu: MeanParameter):
         super().__init__("Von Mises")
         self.mu = mu

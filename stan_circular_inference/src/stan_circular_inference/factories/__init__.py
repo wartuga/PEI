@@ -1,5 +1,5 @@
 from .distributions_factory import Normal, Uniform, Gamma, Exponential, Bernoulli, Poisson
-from .vonmises_factory import VonMises_M, VonMises_MK
+from .vonmises_factory import VonMisesM, VonMisesMK
 
 __all__ = [
     'Normal',
@@ -8,6 +8,6 @@ __all__ = [
     'Exponential',
     'Bernoulli',
     'Poisson',
-    'VonMises_M',
-    'VonMises_MK'
+    'VonMisesM',
+    'VonMisesMK'
 ]

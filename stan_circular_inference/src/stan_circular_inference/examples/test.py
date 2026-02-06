@@ -1,4 +1,4 @@
-import stan_circular_inference.utils as utils
+from stan_circular_inference.service.bayesian_inference import BayesianInferenceService
 import numpy as np
 from scipy.stats import vonmises
 
@@ -7,18 +7,20 @@ data {
     int<lower=0> N;
     vector[N] values;
     // Mixing weight for the first component (between 0 and 1)
-    real<lower=0, upper=1> mixing_weight;
+    // real<lower=0, upper=1> mixing_weight;
 }
 
 parameters {
     real<lower=0, upper=2*pi()> mu1;
-    real<lower=-pi()/2, upper=0> mu2;
+    real<lower=3*pi()/2, upper=2*pi()> mu2;
     
     real<lower=0> kappa1;
     real<lower=0> kappa2;
     
     // Optional: If you want to estimate the mixing weight and remove it from data
     // real<lower=0, upper=1> mixing_weight;
+    // vetor de pontos dados em vez de um valor real
+    vector<lower=0, upper=1>[N] mixing_weight;
 }
 
 transformed parameters {
@@ -36,22 +38,23 @@ transformed parameters {
 model {
     // Priors for the parameters
     mu1 ~ normal(0, pi()/2);
-    mu2 ~ uniform(-pi()/2, 0);
+    mu2 ~ uniform(3*pi()/2, 2*pi());
     kappa1 ~ exponential(0.1);
     kappa2 ~ exponential(0.1);
+    mixing_weight ~ beta(1, 1);
     
     // Mixture model likelihood using log_sum_exp (it prevents underflow and overflow)
     for (n in 1:N) {
         target += log_sum_exp(
-            log(mixing_weight) + von_mises_lpdf(values[n] | mu1, kappa1),
-            log(1 - mixing_weight) + von_mises_lpdf(values[n] | mu2, kappa2)
+            log(mixing_weight[n]) + von_mises_lpdf(values[n] | mu1, kappa1),
+            log(1 - mixing_weight[n]) + von_mises_lpdf(values[n] | mu2, kappa2)
         );
     }
 }
 """
 
-mu1 = np.pi/2
-mu2 = -np.pi/2
+mu1 = np.pi/4
+mu2 = -np.pi/4
 kappa = 5
 size = 100
 
@@ -59,9 +62,52 @@ samples1 = vonmises.rvs(kappa, loc=mu1, size=size)
 samples2 = vonmises.rvs(kappa, loc=mu2, size=size)
 
 samples = np.concatenate([samples1, samples2])
-np.random.shuffle(samples)
+#np.random.shuffle(samples)
 
-data = {'N': len(samples), 'values': samples, 'mixing_weight': 0.5}
-values = utils.get_pystan_statistics(model=model, model_data=data, parameters=['mu1', 'mu2'], sample_amount=1000)
-utils.circular_graphic(values['mu1'], min_val=0, max_val=2*np.pi)
-utils.circular_graphic(values['mu2'], min_val=0, max_val=2*np.pi)
+service = BayesianInferenceService(model)
+
+data = {'N': len(samples), 'values': samples}
+
+posterior = service.build_model(data=data)
+fit = service.get_samples(posterior=posterior, sample_amount=30000)
+
+# mean_values = [sum(values)/len(values) for values in fit['mixing_weight']]
+# dist1 = [value for value in mean_values if value > 0.5]
+# dist2 = [value for value in mean_values if value < 0.5]
+# print(dist1)
+# print(dist2)
+
+# ---
+
+dist1 = []
+
+for values in fit['mixing_weight']:
+    count = 0
+    inc = 0
+    for value in values:
+        if value > 0.5:
+            inc = inc + 1
+            count = count + 1
+        if inc >= (len(values) / 2):
+            dist1.append(1)
+            break
+
+print(len(dist1))
+print(size * 2 - len(dist1))
+
+# ---
+
+dist1 = [
+    1 if sum(1 for v in values if v > 0.5) >= len(values) / 2 else 0
+    for values in fit['mixing_weight']
+]
+
+print(dist1)
+
+values = service.get_values(fit=fit, parameters=['mu1'])
+
+service.circular_graphic(values['mu1'], min_val=0, max_val=2*np.pi)
+
+#values = service.get_pystan_statistics(data=data, parameters=['mu1', 'mu2'], sample_amount=100)
+#service.circular_graphic(values['mu1'], min_val=0, max_val=2*np.pi)
+#service.circular_graphic(values['mu2'], min_val=0, max_val=2*np.pi)

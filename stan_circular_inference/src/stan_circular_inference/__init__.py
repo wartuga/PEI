@@ -1,5 +1,5 @@
 from . import factories
-from . import utils
+from . import service
 from . import examples
 
-__all__ = ['factories', 'utils', 'examples']
+__all__ = ['factories', 'service', 'examples']
