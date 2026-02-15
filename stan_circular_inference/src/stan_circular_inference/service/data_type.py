@@ -8,7 +8,8 @@ class DataType(Enum):
     Type of data as name and min_value and max_value 
     in value[0] and value[1], respectively.
     """
-    ANGLES = (0, 360)
+    ANGLES = (0, 359)
     RADS = (0, 2*np.pi)
     HOURS = (0, 23)
     MONTHS = (0, 11)
+    PERCENT = (0, 1)

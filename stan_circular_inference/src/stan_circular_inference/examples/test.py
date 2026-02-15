@@ -1,4 +1,5 @@
 from stan_circular_inference.service.bayesian_inference import BayesianInferenceService
+from stan_circular_inference.service.data_type import DataType
 import numpy as np
 from scipy.stats import vonmises
 
@@ -61,6 +62,8 @@ size = 100
 samples1 = vonmises.rvs(kappa, loc=mu1, size=size)
 samples2 = vonmises.rvs(kappa, loc=mu2, size=size)
 
+# pensar em normalizar a samples2 para coincidir com a dist2
+
 samples = np.concatenate([samples1, samples2])
 #np.random.shuffle(samples)
 
@@ -69,31 +72,24 @@ service = BayesianInferenceService(model)
 data = {'N': len(samples), 'values': samples}
 
 posterior = service.build_model(data=data)
-fit = service.get_samples(posterior=posterior, sample_amount=30000)
+fit = service.get_samples(posterior=posterior, sample_amount=20000)
 
-# mean_values = [sum(values)/len(values) for values in fit['mixing_weight']]
-# dist1 = [value for value in mean_values if value > 0.5]
-# dist2 = [value for value in mean_values if value < 0.5]
-# print(dist1)
-# print(dist2)
+mean_values = [sum(values)/len(values) for values in fit['mixing_weight']]
+dist1 = [value for value in mean_values if value > 0.5]
+dist2 = [value for value in mean_values if value < 0.5]
 
 # ---
 
 dist1 = []
 
 for values in fit['mixing_weight']:
-    count = 0
     inc = 0
     for value in values:
         if value > 0.5:
             inc = inc + 1
-            count = count + 1
         if inc >= (len(values) / 2):
             dist1.append(1)
             break
-
-print(len(dist1))
-print(size * 2 - len(dist1))
 
 # ---
 
@@ -102,12 +98,27 @@ dist1 = [
     for values in fit['mixing_weight']
 ]
 
-print(dist1)
+real_dist1 = [1] * size
+real_dist2 = [0] * size
 
-values = service.get_values(fit=fit, parameters=['mu1'])
+real_values = real_dist1 + real_dist2
 
-service.circular_graphic(values['mu1'], min_val=0, max_val=2*np.pi)
+incorrect_values = [(real_val, val) for real_val, val in zip(real_values, dist1) if real_val != val]
 
-#values = service.get_pystan_statistics(data=data, parameters=['mu1', 'mu2'], sample_amount=100)
-#service.circular_graphic(values['mu1'], min_val=0, max_val=2*np.pi)
+values = service.get_values(fit=fit, parameters=['mixing_weight.1', 'mixing_weight.2', 'mixing_weight.3', 'mixing_weight.4', 'mixing_weight.5'])
+
+values_to_list = []
+
+for key in values.keys():
+    if key in ['mixing_weight.1', 'mixing_weight.2', 'mixing_weight.3', 'mixing_weight.4', 'mixing_weight.5']:
+        values_to_list.append(values[key])
+
+statistics = service.match_points_to_distributions(samples, real_values, dist1, min_val=0, max_val=2*np.pi, data_type=DataType.RADS)
+
+print(statistics['confusion_matrix'])
+
+service.get_statistics(fit)
+
+#values = service.get_pystan_statistics(data=data, parameters=['mixing_weight.1'], sample_amount=100)
+service.circular_graphic(values['mixing_weight.1'], min_val=0, max_val=1, data_type=DataType.PERCENT)
 #service.circular_graphic(values['mu2'], min_val=0, max_val=2*np.pi)
