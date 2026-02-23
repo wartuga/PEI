@@ -225,6 +225,20 @@ class BayesianInferenceService:
     """
     return [(((value - min_val) / (max_val - min_val)) % 1.0) * (max_val - min_val) for value in values]
 
+  def __draw_bar_plot(data, n_intervals=100):
+
+    bin_edges = np.linspace(0, 1, n_intervals + 1)  # 101 edges for 100 intervals
+    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2  # Centers of intervals
+
+    plt.figure(figsize=(12, 4))
+    plt.bar(bin_centers, data, width=0.008, align='center', alpha=0.7, edgecolor='black')
+    plt.xlabel('Value')
+    plt.ylabel('Frequency / Height')
+    plt.title('Bar Plot')
+    plt.xlim(0, 1)
+    plt.grid(True, alpha=0.3)
+    plt.show()
+
   # Creates a circular graph from min_val to max_val
   def circular_graphic(self, interest_parameter_values, n_intervals = 100, density = False, data = None, min_val = None, max_val = None, data_type=DataType.RADS):
     """
@@ -262,11 +276,6 @@ class BayesianInferenceService:
 
     # Create even angles for the 100 intervals
     angles = np.linspace(0, 2 * np.pi, n_intervals, endpoint=False)
-    angles_closed = np.append(angles, angles[0])
-
-    # Normalize frequencies to density [0, 1]
-    density_values = frequencies / np.max(frequencies) if np.max(frequencies) > 0 else frequencies
-    density_closed = np.append(density_values, density_values[0])
 
     # Creates the figure with polar projection
     _, ax = plt.subplots(subplot_kw={'projection': 'polar'})
@@ -517,12 +526,10 @@ class BayesianInferenceService:
              f'Class Accuracy: {labels[0]}={accuracy_dist0:.1f}%, {labels[1]}={accuracy_dist1:.1f}%',
              ha='center', fontsize=9, style='italic')
     
-    # Legend - place it to the right to avoid overlap
-    if count_total > 0:
-        legend = ax.legend(loc='center left', bbox_to_anchor=(1.1, 0.5), 
-                          fontsize=9, framealpha=0.9)
-        legend.get_frame().set_facecolor('white')
-        legend.get_frame().set_edgecolor('lightgray')
+    # Image label
+    legend = ax.legend(loc='lower right', bbox_to_anchor=(1.4, 0.8))
+    legend.get_frame().set_facecolor('white')
+    legend.get_frame().set_edgecolor('lightgray')
     
     # Adjust layout to make room for all the text
     plt.subplots_adjust(top=0.85, bottom=0.15, left=0, right=0.95)
@@ -533,10 +540,10 @@ class BayesianInferenceService:
         'accuracy': accuracy,
         'accuracy_dist0': accuracy_dist0,
         'accuracy_dist1': accuracy_dist1,
-        'correct_predictions': correct_predictions,
+        #'correct_predictions': correct_predictions,
         'confusion_matrix': confusion_matrix,
-        'frequencies': frequencies,
-        'bar_angles': bar_angles,
+        #'frequencies': frequencies,
+        #'bar_angles': bar_angles,
         'real': {
             'distribution0': count_real_dist0,
             'distribution1': count_real_dist1
@@ -546,3 +553,268 @@ class BayesianInferenceService:
             'distribution1': count_inferred_dist1
         }
     }
+
+  def multiple_graphics(self, interest_parameter_values, n_intervals=100, density=False, 
+                                data=None, min_val=None, max_val=None, data_type=DataType.RADS, 
+                                show_values=True, value_format=".3f", param_names=None, 
+                                figsize=None, share_scale=True, parameters_type=[]):
+    """
+    Builds multiple circular or linear graphs for multiple parameters
+    
+    Parameters
+    - `parameters_type` (list): Each element represents if the graph is to be circular if `True` or linear if `False`
+    """
+    
+    # Se param_names não foi fornecido, use as chaves do dicionário
+    if param_names is None:
+        param_names = list(interest_parameter_values.keys())
+    
+    interest_parameter_values_list = list(interest_parameter_values.values())
+    
+    n_params = len(interest_parameter_values_list)
+    
+    # Garantir que parameters_type tem o tamanho correto
+    if len(parameters_type) != n_params:
+        parameters_type = [True] * n_params  # Assume circular para todos
+    
+    # Handle data parameter (can be dict or list)
+    if data is not None:
+        if isinstance(data, dict):
+            data_list = [data.get(name, None) for name in param_names]
+        elif isinstance(data, (list, tuple)):
+            data_list = data
+            if len(data_list) != n_params:
+                raise ValueError(f"Data length ({len(data_list)}) must match number of parameters ({n_params})")
+        else:
+            data_list = [data] * n_params
+    else:
+        data_list = [None] * n_params
+    
+    # Handle min_val (can be dict, list, or single value)
+    if min_val is not None:
+        if isinstance(min_val, dict):
+            min_val_list = [min_val.get(name, None) for name in param_names]
+        elif isinstance(min_val, (list, tuple)):
+            min_val_list = min_val
+            if len(min_val_list) != n_params:
+                raise ValueError(f"min_val length ({len(min_val_list)}) must match number of parameters ({n_params})")
+        else:
+            min_val_list = [min_val] * n_params
+    else:
+        min_val_list = [None] * n_params
+    
+    # Handle max_val (can be dict, list, or single value)
+    if max_val is not None:
+        if isinstance(max_val, dict):
+            max_val_list = [max_val.get(name, None) for name in param_names]
+        elif isinstance(max_val, (list, tuple)):
+            max_val_list = max_val
+            if len(max_val_list) != n_params:
+                raise ValueError(f"max_val length ({len(max_val_list)}) must match number of parameters ({n_params})")
+        else:
+            max_val_list = [max_val] * n_params
+    else:
+        max_val_list = [None] * n_params
+    
+    # Calculate grid layout
+    n_cols = min(3, n_params)
+    n_rows = (n_params + n_cols - 1) // n_cols
+    
+    # Set figure size
+    if figsize is None:
+        figsize = (5 * n_cols, 5 * n_rows)
+    
+    # MODIFICAÇÃO 1: Criar figura sem projeção polar fixa
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=figsize, squeeze=False)
+    
+    axes_flat = axes.flatten()
+    
+    # Store max values for shared scale (apenas para circulares)
+    all_y_max = []
+    
+    # Process each parameter
+    for idx, (param_values, param_data, param_min_val, param_max_val, param_name, param_type) in enumerate(
+        zip(interest_parameter_values_list, data_list, min_val_list, max_val_list, param_names, parameters_type)):
+        
+        ax = axes_flat[idx]
+        
+        # Determinar min e max corretamente
+        if param_min_val is None:
+            param_min_val = min(param_data) if param_data is not None else min(param_values)
+        if param_max_val is None:
+            param_max_val = max(param_data) if param_data is not None else max(param_values)
+        
+        normalized_values = self.normalize_values(param_values, param_min_val, param_max_val)
+        
+        # Filtrar valores dentro do range
+        filtered_values = [value for value in normalized_values if param_min_val <= value <= param_max_val]
+        
+        # MODIFICAÇÃO 2: Escolher o tipo de gráfico baseado em param_type
+        if param_type:
+            # GRÁFICO CIRCULAR
+            new_ax = self._draw_circular_subplot(ax, filtered_values, param_min_val, param_max_val, 
+                                                n_intervals, density, show_values, value_format, param_name)
+            
+            # Atualizar o axes na lista
+            axes_flat[idx] = new_ax
+            
+            # Guardar y_max para scale compartilhado
+            if hasattr(ax, '_y_max'):
+                all_y_max.append(ax._y_max)
+        else:
+            # GRÁFICO LINEAR (BAR PLOT)
+            self._draw_linear_subplot(ax, filtered_values, param_min_val, param_max_val,
+                                     n_intervals, param_name)
+    
+    # MODIFICAÇÃO 3: Aplicar escala compartilhada apenas para circulares
+    if share_scale and all_y_max:
+        global_y_max = max(all_y_max)
+        for idx, (ax, param_type) in enumerate(zip(axes_flat[:n_params], parameters_type)):
+            if param_type and hasattr(ax, '_y_max'):
+                ax.set_ylim(0, global_y_max)
+    
+    # Esconder subplots não utilizados
+    for idx in range(n_params, len(axes_flat)):
+        axes_flat[idx].set_visible(False)
+    
+    # Título geral
+    fig.suptitle(f'Multiple Parameter Visualization', fontsize=14, y=1.02)
+    
+    plt.tight_layout()
+    plt.show()
+
+
+  def _draw_circular_subplot(self, ax, filtered_values, param_min_val, param_max_val, 
+                          n_intervals, density, show_values, value_format, param_name):
+    """Desenha um subplot circular (polar)"""
+    
+    # CORREÇÃO: Verificar se o axes é polar, se não for, criar um novo polar
+    if not hasattr(ax, 'set_theta_offset'):
+        # Salvar a posição do axes atual
+        fig = ax.figure
+        pos = ax.get_position()
+        
+        # Remover o axes antigo
+        ax.remove()
+        
+        # Criar um novo axes polar na mesma posição
+        ax = fig.add_axes(pos, projection='polar')
+    
+    # Criar bins
+    bins = np.linspace(param_min_val, param_max_val, n_intervals + 1)
+    
+    # Calcular frequências
+    frequencies, _ = np.histogram(filtered_values, bins=bins)
+    
+    # Criar ângulos para as barras
+    angles = np.linspace(0, 2 * np.pi, n_intervals, endpoint=False)
+    
+    y_max = 0
+    
+    if density and len(filtered_values) > 1:
+        # KDE plot
+        from scipy.stats import gaussian_kde
+        
+        kde = gaussian_kde(filtered_values)
+        n_smooth_points = 360
+        angles_smooth = np.linspace(0, 2 * np.pi, n_smooth_points, endpoint=False)
+        values_smooth = np.linspace(param_min_val, param_max_val, n_smooth_points)
+        
+        density_smooth = kde(values_smooth)
+        density_smooth = density_smooth / np.max(density_smooth)
+        
+        angles_closed = np.append(angles_smooth, angles_smooth[0])
+        density_closed = np.append(density_smooth, density_smooth[0])
+        
+        ax.fill(angles_closed, density_closed, alpha=0.7, color='blue')
+        ax.plot(angles_closed, density_closed, color='darkblue', linewidth=2)
+        
+        y_max = 1.1
+    else:
+        # Rose diagram (barras)
+        if len(frequencies) > 0 and max(frequencies) > 0:
+            bars = ax.bar(angles, frequencies, width=2*np.pi/n_intervals,
+                         align='center', alpha=0.7, edgecolor='white', linewidth=0.5)
+            
+            # Colorir barras
+            for i, bar in enumerate(bars):
+                bar.set_facecolor(plt.cm.viridis(i / n_intervals))
+            
+            y_max = max(frequencies) * 1.1
+        else:
+            ax.text(0, 0, 'No data', ha='center', va='center')
+            y_max = 1
+        
+        # Remover labels do raio
+        ax.set_yticklabels([])
+    
+    # Guardar y_max para shared scale
+    ax._y_max = y_max
+    
+    # Labels dos ângulos
+    label_angles = np.linspace(0, 2 * np.pi, 8, endpoint=False)
+    tick_labels = []
+    
+    for pos_angle in label_angles:
+        real_value = param_min_val + (pos_angle / (2 * np.pi)) * (param_max_val - param_min_val)
+        real_angle_deg = np.rad2deg(real_value) % 360
+        tick_labels.append(f'{real_value:.3f}\n({real_angle_deg:.0f}°)')
+    
+    ax.set_xticks(label_angles)
+    ax.set_xticklabels(tick_labels, fontsize=8)
+    
+    # Configurações do gráfico polar - AGORA FUNCIONA porque ax é polar
+    ax.set_theta_offset(np.pi/2)
+    ax.set_theta_direction(-1)
+    ax.set_ylim(0, y_max)
+    ax.grid(True, alpha=0.3)
+    
+    # Título
+    ax.set_title(f'{param_name}\nn={len(filtered_values)}', pad=20, fontsize=10)
+    
+    return ax
+
+
+  def _draw_linear_subplot(self, ax, filtered_values, param_min_val, param_max_val,
+                        n_intervals, param_name):
+    """Desenha um subplot linear (bar plot)"""
+    
+    # Criar bins
+    bins = np.linspace(param_min_val, param_max_val, n_intervals + 1)
+    bin_centers = (bins[:-1] + bins[1:]) / 2
+    
+    # Calcular frequências
+    frequencies, _ = np.histogram(filtered_values, bins=bins)
+    
+    # Calcular largura das barras
+    bar_width = (param_max_val - param_min_val) / n_intervals * 0.9
+    
+    # Criar bar plot
+    ax.bar(bin_centers, frequencies, width=bar_width,
+                 align='center', alpha=0.7, color='skyblue', edgecolor='black')
+    
+    # Configurar eixos
+    ax.set_xlim(param_min_val, param_max_val)
+    ax.set_xlabel('Value')
+    ax.set_ylabel('Frequency')
+    ax.set_title(f'{param_name}\nn={len(filtered_values)}')
+    ax.grid(True, alpha=0.3)
+
+  # Versão simples da função de bar plot que pode ser usada separadamente
+  def __draw_bar_plot(self, data, n_intervals=100, min_val=0, max_val=1, title="Bar Plot"):
+    """
+    Versão simples para desenhar apenas um bar plot
+    """
+    _, ax = plt.subplots(figsize=(12, 4))
+    
+    bin_edges = np.linspace(min_val, max_val, n_intervals + 1)
+    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+    
+    ax.bar(bin_centers, data, width=(max_val-min_val)/n_intervals*0.9,
+           align='center', alpha=0.7, color='skyblue', edgecolor='black')
+    ax.set_xlabel('Value')
+    ax.set_ylabel('Frequency / Height')
+    ax.set_title(title)
+    ax.set_xlim(min_val, max_val)
+    ax.grid(True, alpha=0.3)
+    plt.show()

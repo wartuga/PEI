@@ -12,4 +12,4 @@ class DataType(Enum):
     RADS = (0, 2*np.pi)
     HOURS = (0, 23)
     MONTHS = (0, 11)
-    PERCENT = (0, 1)
+    #PERCENT = (0, 1)

@@ -56,7 +56,7 @@ model {
 
 mu1 = np.pi/4
 mu2 = -np.pi/4
-kappa = 5
+kappa = 9
 size = 100
 
 samples1 = vonmises.rvs(kappa, loc=mu1, size=size)
@@ -72,26 +72,7 @@ service = BayesianInferenceService(model)
 data = {'N': len(samples), 'values': samples}
 
 posterior = service.build_model(data=data)
-fit = service.get_samples(posterior=posterior, sample_amount=20000)
-
-mean_values = [sum(values)/len(values) for values in fit['mixing_weight']]
-dist1 = [value for value in mean_values if value > 0.5]
-dist2 = [value for value in mean_values if value < 0.5]
-
-# ---
-
-dist1 = []
-
-for values in fit['mixing_weight']:
-    inc = 0
-    for value in values:
-        if value > 0.5:
-            inc = inc + 1
-        if inc >= (len(values) / 2):
-            dist1.append(1)
-            break
-
-# ---
+fit = service.get_samples(posterior=posterior, sample_amount=1000)
 
 dist1 = [
     1 if sum(1 for v in values if v > 0.5) >= len(values) / 2 else 0
@@ -107,11 +88,18 @@ incorrect_values = [(real_val, val) for real_val, val in zip(real_values, dist1)
 
 values = service.get_values(fit=fit, parameters=['mixing_weight.1', 'mixing_weight.2', 'mixing_weight.3', 'mixing_weight.4', 'mixing_weight.5'])
 
-values_to_list = []
-
-for key in values.keys():
-    if key in ['mixing_weight.1', 'mixing_weight.2', 'mixing_weight.3', 'mixing_weight.4', 'mixing_weight.5']:
-        values_to_list.append(values[key])
+service.multiple_graphics(
+    values,
+    min_val=0, 
+    max_val=1, 
+    param_names=[
+        'mixing_weight.1',
+        'mixing_weight.2', 
+        'mixing_weight.3', 
+        'mixing_weight.4', 
+        'mixing_weight.5'
+    ],
+    parameters_type=[True,False,False,False,False])
 
 statistics = service.match_points_to_distributions(samples, real_values, dist1, min_val=0, max_val=2*np.pi, data_type=DataType.RADS)
 
@@ -120,5 +108,5 @@ print(statistics['confusion_matrix'])
 service.get_statistics(fit)
 
 #values = service.get_pystan_statistics(data=data, parameters=['mixing_weight.1'], sample_amount=100)
-service.circular_graphic(values['mixing_weight.1'], min_val=0, max_val=1, data_type=DataType.PERCENT)
+service.circular_graphic(values['mixing_weight.1'], min_val=0, max_val=1)
 #service.circular_graphic(values['mu2'], min_val=0, max_val=2*np.pi)
