@@ -343,6 +343,51 @@ class BayesianInferenceService:
 
     plt.title(f'Diagrama de rosas')
     plt.show()
+
+  def get_mixture_statistics(self, values, real_attribution, inferred_attribution, min_val=None, max_val=None, data_type=DataType.PERCENT):
+     # Validate inputs
+    if len(values) != len(real_attribution) or len(values) != len(inferred_attribution):
+        raise ValueError(f"All input arrays must have the same length")
+
+    # Determine min and max values
+    if min_val is None:
+        min_val = min(values)
+    if max_val is None:
+        max_val = max(values)
+    
+    # Normalize values
+    normalized_values = self.normalize_values(values, data_type.value[0], data_type.value[1])
+    
+    # Filter values within range
+    filtered_indices = [i for i, val in enumerate(normalized_values) if min_val <= val <= max_val]
+    filtered_real = [real_attribution[i] for i in filtered_indices]
+    filtered_inferred = [inferred_attribution[i] for i in filtered_indices]
+
+    size_filtered_real = len(filtered_real)
+    count_total = len(values)
+    
+    # Calculate accuracy
+    correct_predictions = sum(1 for i in range(size_filtered_real) if filtered_real[i] == filtered_inferred[i])
+    accuracy = correct_predictions / count_total * 100 if count_total > 0 else 0
+
+    # Confusion matrix calculation
+    confusion_matrix = {
+        'TP': sum(1 for i in range(size_filtered_real) if filtered_real[i] == 0 and filtered_inferred[i] == 0),
+        'FN': sum(1 for i in range(size_filtered_real) if filtered_real[i] == 1 and filtered_inferred[i] == 0),
+        'FP': sum(1 for i in range(size_filtered_real) if filtered_real[i] == 0 and filtered_inferred[i] == 1),
+        'TN': sum(1 for i in range(size_filtered_real) if filtered_real[i] == 1 and filtered_inferred[i] == 1)
+    }
+    
+    # Calculate per-class accuracy
+    accuracy_dist0 = confusion_matrix['true_0_pred_0'] / (confusion_matrix['true_0_pred_0'] + confusion_matrix['true_0_pred_1']) * 100 if (confusion_matrix['true_0_pred_0'] + confusion_matrix['true_0_pred_1']) > 0 else 0
+    accuracy_dist1 = confusion_matrix['true_1_pred_1'] / (confusion_matrix['true_1_pred_1'] + confusion_matrix['true_1_pred_0']) * 100 if (confusion_matrix['true_1_pred_1'] + confusion_matrix['true_1_pred_0']) > 0 else 0
+
+    return {
+      'accuracy': accuracy, 
+      'accuracy_dist_1': accuracy_dist0, 
+      'accuracy_dist_2': accuracy_dist1,
+      'confusion_matrix': confusion_matrix
+    }
   
   def match_points_to_distributions(self, values, real_attribution, inferred_attribution, n_intervals=100,
                                            data=None, min_val=None, max_val=None, data_type=DataType.RADS,
@@ -396,9 +441,8 @@ class BayesianInferenceService:
     count_inferred_dist0 = len(angles_inferred_dist0)
     count_inferred_dist1 = len(angles_inferred_dist1)
     
-    # Calculate accuracy
-    correct_predictions = sum(1 for i in range(size_filtered_real) if filtered_real[i] == filtered_inferred[i])
-    accuracy = correct_predictions / count_total * 100 if count_total > 0 else 0
+    mixture_statistics = self.get_mixture_statistics(values, real_attribution, inferred_attribution, min_val, max_val)
+    accuracy = mixture_statistics['accuracy']
     
     # Create figure with extra space at top and bottom
     fig, ax = plt.subplots(figsize=(12, 10), subplot_kw={'projection': 'polar'})
@@ -498,16 +542,11 @@ class BayesianInferenceService:
             ha='center', fontsize=12, color='gray')
     
     # Confusion matrix calculation
-    confusion_matrix = {
-        'true_0_pred_0': sum(1 for i in range(size_filtered_real) if filtered_real[i] == 0 and filtered_inferred[i] == 0),
-        'true_0_pred_1': sum(1 for i in range(size_filtered_real) if filtered_real[i] == 0 and filtered_inferred[i] == 1),
-        'true_1_pred_0': sum(1 for i in range(size_filtered_real) if filtered_real[i] == 1 and filtered_inferred[i] == 0),
-        'true_1_pred_1': sum(1 for i in range(size_filtered_real) if filtered_real[i] == 1 and filtered_inferred[i] == 1)
-    }
+    confusion_matrix = mixture_statistics['confusion_matrix']
     
     # Calculate per-class accuracy
-    accuracy_dist0 = confusion_matrix['true_0_pred_0'] / (confusion_matrix['true_0_pred_0'] + confusion_matrix['true_0_pred_1']) * 100 if (confusion_matrix['true_0_pred_0'] + confusion_matrix['true_0_pred_1']) > 0 else 0
-    accuracy_dist1 = confusion_matrix['true_1_pred_1'] / (confusion_matrix['true_1_pred_1'] + confusion_matrix['true_1_pred_0']) * 100 if (confusion_matrix['true_1_pred_1'] + confusion_matrix['true_1_pred_0']) > 0 else 0
+    accuracy_dist0 = mixture_statistics['accuracy_dist_1']
+    accuracy_dist1 = mixture_statistics['accuracy_dist_2']
     
     # Main statistics at the bottom
     fig.text(0.5, 0.08,  # Position at bottom
@@ -557,7 +596,7 @@ class BayesianInferenceService:
   def multiple_graphics(self, interest_parameter_values, n_intervals=100, density=False, 
                                 data=None, min_val=None, max_val=None, data_type=DataType.RADS, 
                                 show_values=True, value_format=".3f", param_names=None, 
-                                figsize=None, share_scale=True, parameters_type=[]):
+                                figsize=(14, 10), share_scale=True, parameters_type=[]):
     """
     Builds multiple circular or linear graphs for multiple parameters
     
@@ -620,10 +659,6 @@ class BayesianInferenceService:
     n_cols = min(3, n_params)
     n_rows = (n_params + n_cols - 1) // n_cols
     
-    # Set figure size
-    if figsize is None:
-        figsize = (5 * n_cols, 5 * n_rows)
-    
     # MODIFICAÇÃO 1: Criar figura sem projeção polar fixa
     fig, axes = plt.subplots(n_rows, n_cols, figsize=figsize, squeeze=False)
     
@@ -663,8 +698,11 @@ class BayesianInferenceService:
                 all_y_max.append(ax._y_max)
         else:
             # GRÁFICO LINEAR (BAR PLOT)
-            self._draw_linear_subplot(ax, filtered_values, param_min_val, param_max_val,
+            new_ax = self._draw_linear_subplot(ax, filtered_values, 0, 1,
                                      n_intervals, param_name)
+            
+            # Atualizar o axes na lista
+            axes_flat[idx] = new_ax
     
     # MODIFICAÇÃO 3: Aplicar escala compartilhada apenas para circulares
     if share_scale and all_y_max:
@@ -693,12 +731,21 @@ class BayesianInferenceService:
         # Salvar a posição do axes atual
         fig = ax.figure
         pos = ax.get_position()
+
+        margin = 0.1
+
+        fig = ax.figure
+        pos = ax.get_position()
+
+        new_height = pos.height - margin
+        
+        new_pos = [pos.x0, pos.y0, pos.width, new_height]
         
         # Remover o axes antigo
         ax.remove()
         
         # Criar um novo axes polar na mesma posição
-        ax = fig.add_axes(pos, projection='polar')
+        ax = fig.add_axes(new_pos, projection='polar')
     
     # Criar bins
     bins = np.linspace(param_min_val, param_max_val, n_intervals + 1)
@@ -712,8 +759,6 @@ class BayesianInferenceService:
     y_max = 0
     
     if density and len(filtered_values) > 1:
-        # KDE plot
-        from scipy.stats import gaussian_kde
         
         kde = gaussian_kde(filtered_values)
         n_smooth_points = 360
@@ -737,8 +782,8 @@ class BayesianInferenceService:
                          align='center', alpha=0.7, edgecolor='white', linewidth=0.5)
             
             # Colorir barras
-            for i, bar in enumerate(bars):
-                bar.set_facecolor(plt.cm.viridis(i / n_intervals))
+            for bar in bars:
+                bar.set_facecolor(plt.cm.viridis(0.3))
             
             y_max = max(frequencies) * 1.1
         else:
@@ -778,6 +823,26 @@ class BayesianInferenceService:
   def _draw_linear_subplot(self, ax, filtered_values, param_min_val, param_max_val,
                         n_intervals, param_name):
     """Desenha um subplot linear (bar plot)"""
+
+    margin = 0.03
+    half_margin = margin / 2
+
+    fig = ax.figure
+    pos = ax.get_position()
+    
+    # MODIFICAÇÃO: Reduzir a largura do subplot
+    new_width = pos.width * (1 - margin)
+    new_height = pos.height - margin * 3
+
+    new_left = pos.x0 + half_margin
+    
+    new_pos = [new_left, pos.y0, new_width, new_height]
+    
+    # Remover axes antigo
+    ax.remove()
+    
+    # Criar novo axes com largura reduzida
+    ax = fig.add_axes(new_pos)
     
     # Criar bins
     bins = np.linspace(param_min_val, param_max_val, n_intervals + 1)
@@ -797,24 +862,9 @@ class BayesianInferenceService:
     ax.set_xlim(param_min_val, param_max_val)
     ax.set_xlabel('Value')
     ax.set_ylabel('Frequency')
-    ax.set_title(f'{param_name}\nn={len(filtered_values)}')
     ax.grid(True, alpha=0.3)
 
-  # Versão simples da função de bar plot que pode ser usada separadamente
-  def __draw_bar_plot(self, data, n_intervals=100, min_val=0, max_val=1, title="Bar Plot"):
-    """
-    Versão simples para desenhar apenas um bar plot
-    """
-    _, ax = plt.subplots(figsize=(12, 4))
-    
-    bin_edges = np.linspace(min_val, max_val, n_intervals + 1)
-    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
-    
-    ax.bar(bin_centers, data, width=(max_val-min_val)/n_intervals*0.9,
-           align='center', alpha=0.7, color='skyblue', edgecolor='black')
-    ax.set_xlabel('Value')
-    ax.set_ylabel('Frequency / Height')
-    ax.set_title(title)
-    ax.set_xlim(min_val, max_val)
-    ax.grid(True, alpha=0.3)
-    plt.show()
+    # Título
+    ax.set_title(f'{param_name}\nn={len(filtered_values)}', pad=20, fontsize=10)
+
+    return ax

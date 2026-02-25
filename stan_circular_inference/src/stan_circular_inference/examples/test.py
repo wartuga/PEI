@@ -86,27 +86,28 @@ real_values = real_dist1 + real_dist2
 
 incorrect_values = [(real_val, val) for real_val, val in zip(real_values, dist1) if real_val != val]
 
-values = service.get_values(fit=fit, parameters=['mixing_weight.1', 'mixing_weight.2', 'mixing_weight.3', 'mixing_weight.4', 'mixing_weight.5'])
+values = service.get_values(fit=fit, parameters=['mu1', 'mu2', 'mixing_weight.1', 'mixing_weight.2', 'mixing_weight.3', 'mixing_weight.4', 'mixing_weight.5'])
 
 service.multiple_graphics(
     values,
     min_val=0, 
-    max_val=1, 
+    max_val=2*np.pi, 
     param_names=[
+        'mu1', 'mu2',
         'mixing_weight.1',
         'mixing_weight.2', 
         'mixing_weight.3', 
         'mixing_weight.4', 
         'mixing_weight.5'
     ],
-    parameters_type=[True,False,False,False,False])
+    parameters_type=[True, True, False, False, True, False, False])
 
-statistics = service.match_points_to_distributions(samples, real_values, dist1, min_val=0, max_val=2*np.pi, data_type=DataType.RADS)
+# statistics = service.match_points_to_distributions(samples, real_values, dist1, min_val=0, max_val=2*np.pi, data_type=DataType.RADS)
 
-print(statistics['confusion_matrix'])
+# print(statistics['confusion_matrix'])
 
-service.get_statistics(fit)
+# service.get_statistics(fit)
 
 #values = service.get_pystan_statistics(data=data, parameters=['mixing_weight.1'], sample_amount=100)
-service.circular_graphic(values['mixing_weight.1'], min_val=0, max_val=1)
+# service.circular_graphic(values['mixing_weight.1'], min_val=0, max_val=1)
 #service.circular_graphic(values['mu2'], min_val=0, max_val=2*np.pi)
