@@ -86,7 +86,31 @@ real_values = real_dist1 + real_dist2
 
 incorrect_values = [(real_val, val) for real_val, val in zip(real_values, dist1) if real_val != val]
 
-values = service.get_values(fit=fit, parameters=['mu1', 'mu2', 'mixing_weight.1', 'mixing_weight.2', 'mixing_weight.3', 'mixing_weight.4', 'mixing_weight.5'])
+values = service.get_values(fit=fit, 
+        parameters=[
+            'mu1', 'mu2', 
+            'mixing_weight.1',
+            'mixing_weight.2',
+            'mixing_weight.3',
+            'mixing_weight.4',
+            'mixing_weight.5',
+            'mixing_weight.6',
+            'mixing_weight.7',
+            'mixing_weight.8',
+            'mixing_weight.9',
+            'mixing_weight.10',
+            'mixing_weight.11',
+            'mixing_weight.12',
+            'mixing_weight.13',
+            'mixing_weight.14',
+            'mixing_weight.15',
+            'mixing_weight.16',
+            'mixing_weight.17',
+            'mixing_weight.18',
+            'mixing_weight.19',
+            'mixing_weight.20',
+            'mixing_weight.195'
+        ])
 
 service.multiple_graphics(
     values,
@@ -95,12 +119,28 @@ service.multiple_graphics(
     param_names=[
         'mu1', 'mu2',
         'mixing_weight.1',
-        'mixing_weight.2', 
-        'mixing_weight.3', 
-        'mixing_weight.4', 
-        'mixing_weight.5'
+        'mixing_weight.2',
+        'mixing_weight.3',
+        'mixing_weight.4',
+        'mixing_weight.5',
+        'mixing_weight.6',
+        'mixing_weight.7',
+        'mixing_weight.8',
+        'mixing_weight.9',
+        'mixing_weight.10',
+        'mixing_weight.11',
+        'mixing_weight.12',
+        'mixing_weight.13',
+        'mixing_weight.14',
+        'mixing_weight.15',
+        'mixing_weight.16',
+        'mixing_weight.17',
+        'mixing_weight.18',
+        'mixing_weight.19',
+        'mixing_weight.20', 
+        'mixing_weight.195'
     ],
-    parameters_type=[True, True, False, False, True, False, False])
+    parameters_type=[True, True, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False])
 
 # statistics = service.match_points_to_distributions(samples, real_values, dist1, min_val=0, max_val=2*np.pi, data_type=DataType.RADS)
 

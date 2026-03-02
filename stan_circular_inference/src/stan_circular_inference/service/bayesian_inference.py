@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from scipy.stats import gaussian_kde
 from stan_circular_inference.factories.model_factory import ProbabilisticModel
 from stan_circular_inference.service.data_type import DataType
+import math
 
 class BayesianInferenceService:
 
@@ -53,14 +54,14 @@ class BayesianInferenceService:
       return stan.build(self.model, data=data)
     
     except Exception as e:
+      print(type(e))
+      print("Error:", e)
       if type(e) is TypeError:
         raise TypeError("Wrong parameter format for the model!")
       if type(e) is RuntimeError:
         raise RuntimeError("Try specifying initial values, reducing ranges of constrained values, reparameterizing the model.")
       if type(e) is TimeoutError:
         raise TimeoutError("The model timeout during sampling, try reducing the sampling amount!")
-      print(type(e))
-      print("Error:", e)
 
   def get_samples(self, posterior, sample_amount=50000, init=None):
     """
@@ -389,6 +390,18 @@ class BayesianInferenceService:
       'confusion_matrix': confusion_matrix
     }
   
+  def show_mixture_statistics(self, mixture_statistics):
+    print(f"""
+      Accuracy: {mixture_statistics['accuracy']}
+      Distribution_1_Accuracy: {mixture_statistics['accuracy_dist_1']}
+      Distribution_2_Accuracy: {mixture_statistics['accuracy_dist_2']}
+      Confusion Matrix:
+      ______________| Predicted Values
+      Actual Values | {mixture_statistics['confusion_matrix']['TP']} | {mixture_statistics['confusion_matrix']['FN']}
+                    | {mixture_statistics['confusion_matrix']['FP']} | {mixture_statistics['confusion_matrix']['TN']}
+      
+    """)
+  
   def match_points_to_distributions(self, values, real_attribution, inferred_attribution, n_intervals=100,
                                            data=None, min_val=None, max_val=None, data_type=DataType.RADS,
                                            colors=['red', 'blue'], labels=['Distribution 1', 'Distribution 2'],
@@ -442,6 +455,7 @@ class BayesianInferenceService:
     count_inferred_dist1 = len(angles_inferred_dist1)
     
     mixture_statistics = self.get_mixture_statistics(values, real_attribution, inferred_attribution, min_val, max_val)
+    self.show_mixture_statistics(mixture_statistics)
     accuracy = mixture_statistics['accuracy']
     
     # Create figure with extra space at top and bottom
@@ -655,71 +669,85 @@ class BayesianInferenceService:
     else:
         max_val_list = [None] * n_params
     
-    # Calculate grid layout
-    n_cols = min(3, n_params)
-    n_rows = (n_params + n_cols - 1) // n_cols
+    graph_size = min(3, math.ceil(math.sqrt(n_params)))
     
     # MODIFICAÇÃO 1: Criar figura sem projeção polar fixa
-    fig, axes = plt.subplots(n_rows, n_cols, figsize=figsize, squeeze=False)
+    fig, axes = plt.subplots(graph_size, graph_size, figsize=figsize, squeeze=False)
     
     axes_flat = axes.flatten()
     
     # Store max values for shared scale (apenas para circulares)
     all_y_max = []
+
+    counter = 0
+    image_counter = 1
     
     # Process each parameter
-    for idx, (param_values, param_data, param_min_val, param_max_val, param_name, param_type) in enumerate(
+    for _, (param_values, param_data, param_min_val, param_max_val, param_name, param_type) in enumerate(
         zip(interest_parameter_values_list, data_list, min_val_list, max_val_list, param_names, parameters_type)):
         
-        ax = axes_flat[idx]
+      idx = counter % 9
+      ax = axes_flat[idx]
+      
+      # Determinar min e max corretamente
+      if param_min_val is None:
+          param_min_val = min(param_data) if param_data is not None else min(param_values)
+      if param_max_val is None:
+          param_max_val = max(param_data) if param_data is not None else max(param_values)
+      
+      normalized_values = self.normalize_values(param_values, param_min_val, param_max_val)
+      
+      # Filtrar valores dentro do range
+      filtered_values = [value for value in normalized_values if param_min_val <= value <= param_max_val]
+      
+      # MODIFICAÇÃO 2: Escolher o tipo de gráfico baseado em param_type
+      if param_type:
+          # GRÁFICO CIRCULAR
+          new_ax = self._draw_circular_subplot(ax, filtered_values, param_min_val, param_max_val, 
+                                              n_intervals, density, show_values, value_format, param_name)
+          
+          # Atualizar o axes na lista
+          axes_flat[idx] = new_ax
+          
+          # Guardar y_max para scale compartilhado
+          if hasattr(ax, '_y_max'):
+              all_y_max.append(ax._y_max)
+      else:
+          # GRÁFICO LINEAR (BAR PLOT)
+          new_ax = self._draw_linear_subplot(ax, filtered_values, 0, 1,
+                                    param_name)
+          
+          # Atualizar o axes na lista
+          axes_flat[idx] = new_ax
+      
+      counter = counter + 1
+
+      if counter % 9 == 0 or n_params == counter:
+        # MODIFICAÇÃO 3: Aplicar escala compartilhada apenas para circulares
+        if share_scale and all_y_max:
+            global_y_max = max(all_y_max)
+            for idx, (ax, param_type) in enumerate(zip(axes_flat[:n_params], parameters_type)):
+                if param_type and hasattr(ax, '_y_max'):
+                    ax.set_ylim(0, global_y_max)
+        if n_params == counter:
+          # Esconder subplots não utilizados
+          for idx in range(counter % 9, len(axes_flat)):
+              axes_flat[idx].set_visible(False)
         
-        # Determinar min e max corretamente
-        if param_min_val is None:
-            param_min_val = min(param_data) if param_data is not None else min(param_values)
-        if param_max_val is None:
-            param_max_val = max(param_data) if param_data is not None else max(param_values)
+        # Título geral
+        fig.suptitle(f'Multiple Parameter Visualization', fontsize=14, y=1.02)
+        fig.savefig(f'image{image_counter}.png', dpi=300, bbox_inches='tight')
+        image_counter = image_counter + 1
         
-        normalized_values = self.normalize_values(param_values, param_min_val, param_max_val)
-        
-        # Filtrar valores dentro do range
-        filtered_values = [value for value in normalized_values if param_min_val <= value <= param_max_val]
-        
-        # MODIFICAÇÃO 2: Escolher o tipo de gráfico baseado em param_type
-        if param_type:
-            # GRÁFICO CIRCULAR
-            new_ax = self._draw_circular_subplot(ax, filtered_values, param_min_val, param_max_val, 
-                                                n_intervals, density, show_values, value_format, param_name)
-            
-            # Atualizar o axes na lista
-            axes_flat[idx] = new_ax
-            
-            # Guardar y_max para scale compartilhado
-            if hasattr(ax, '_y_max'):
-                all_y_max.append(ax._y_max)
-        else:
-            # GRÁFICO LINEAR (BAR PLOT)
-            new_ax = self._draw_linear_subplot(ax, filtered_values, 0, 1,
-                                     n_intervals, param_name)
-            
-            # Atualizar o axes na lista
-            axes_flat[idx] = new_ax
-    
-    # MODIFICAÇÃO 3: Aplicar escala compartilhada apenas para circulares
-    if share_scale and all_y_max:
-        global_y_max = max(all_y_max)
-        for idx, (ax, param_type) in enumerate(zip(axes_flat[:n_params], parameters_type)):
-            if param_type and hasattr(ax, '_y_max'):
-                ax.set_ylim(0, global_y_max)
-    
-    # Esconder subplots não utilizados
-    for idx in range(n_params, len(axes_flat)):
-        axes_flat[idx].set_visible(False)
-    
-    # Título geral
-    fig.suptitle(f'Multiple Parameter Visualization', fontsize=14, y=1.02)
-    
-    plt.tight_layout()
-    plt.show()
+        plt.show()
+
+        if counter < n_params:
+          graph_size = min(3, math.ceil(math.sqrt(n_params - counter)))
+      
+          # MODIFICAÇÃO 1: Criar figura sem projeção polar fixa
+          fig, axes = plt.subplots(graph_size, graph_size, figsize=figsize, squeeze=False)
+          
+          axes_flat = axes.flatten()
 
 
   def _draw_circular_subplot(self, ax, filtered_values, param_min_val, param_max_val, 
@@ -821,7 +849,7 @@ class BayesianInferenceService:
 
 
   def _draw_linear_subplot(self, ax, filtered_values, param_min_val, param_max_val,
-                        n_intervals, param_name):
+                      param_name, n_intervals = 20):
     """Desenha um subplot linear (bar plot)"""
 
     margin = 0.03
