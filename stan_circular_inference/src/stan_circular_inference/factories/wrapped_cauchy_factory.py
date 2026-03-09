@@ -2,9 +2,9 @@ from stan_circular_inference.factories.model_factory import ProbabilisticModel
 from stan_circular_inference.factories.parameters_factory import MeanParameter, VarianceParameter
 from typing import Dict, Any
 
-class Cardioid(ProbabilisticModel):
+class WrappedCauchy(ProbabilisticModel):
     def __init__(self, mu: MeanParameter, rho: VarianceParameter):
-        super().__init__("Cardioid")
+        super().__init__("WrappedCauchy")
         self.mu = mu
         self.rho = rho
     
@@ -16,8 +16,8 @@ class Cardioid(ProbabilisticModel):
             }}
 
             parameters {{
-                real<lower=0, upper=2*pi()> mu;
-                real<lower=0, upper=0.5> rho;
+                real<lower=-pi(), upper=pi()> mu;
+                real<lower=0, upper=1> rho;
             }}
 
             model {{
@@ -25,7 +25,7 @@ class Cardioid(ProbabilisticModel):
                 rho ~ {self.rho.get_code()};
                 
                 for (n in 1:N){{
-                    target += -log(2*pi()) + log1p(2*rho*cos(values[n] - mu));
+                    target += log((1.0/(2*pi())) * ((1 - square(rho)) / (1 + square(rho) - 2*rho*cos(values[n] - mu))));
                 }}
             }}
             """

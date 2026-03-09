@@ -9,11 +9,13 @@ import time
 df = pd.read_csv('datasets/wind_dataset.csv')
 
 mu = Uniform(0, 2*np.pi)
-rho = Uniform(-0.5, 0.5)
+rho = Uniform(-0.1, 0.1)
 
 model1 = Cardioid(mu, rho)
 
 values = np.array(df['wind_dir'], dtype='float')
+
+test_values = [-np.pi/4, np.pi/4]
 
 test_data = {
         "N": 2,
@@ -33,6 +35,8 @@ interest_parameter_values = service.get_pystan_statistics(data=test_data, parame
 #interest_parameter_values = service.get_pystan_statistics(data=model1_data, parameters=['mu', 'kappa'], sample_amount=1000)
 
 print("--- %s seconds ---" % (time.time() - start_time))
+
+service.match_points_to_distributions(test_values, test_values, interest_parameter_values, min_val=0, max_val=2*np.pi)
 
 service.circular_graphic(interest_parameter_values['mu'], min_val=0, max_val=2*np.pi)
 

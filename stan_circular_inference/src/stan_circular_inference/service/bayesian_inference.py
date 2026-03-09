@@ -245,8 +245,6 @@ class BayesianInferenceService:
     """
     Builds a circular graph based on the `interest_parameter_values` parameter
 
-    TODO fazer para vários parâmetros e juntar(?) no mesmo gráfico
-
     Parameters
     - `interest_parameter_values` (array): the values from the chains
     - `n_intervals` (int): the number of intervals desired to equally split the values between the minimum value and maximum value
@@ -380,8 +378,8 @@ class BayesianInferenceService:
     }
     
     # Calculate per-class accuracy
-    accuracy_dist0 = confusion_matrix['true_0_pred_0'] / (confusion_matrix['true_0_pred_0'] + confusion_matrix['true_0_pred_1']) * 100 if (confusion_matrix['true_0_pred_0'] + confusion_matrix['true_0_pred_1']) > 0 else 0
-    accuracy_dist1 = confusion_matrix['true_1_pred_1'] / (confusion_matrix['true_1_pred_1'] + confusion_matrix['true_1_pred_0']) * 100 if (confusion_matrix['true_1_pred_1'] + confusion_matrix['true_1_pred_0']) > 0 else 0
+    accuracy_dist0 = confusion_matrix['TP'] / (confusion_matrix['TP'] + confusion_matrix['FP']) * 100 if (confusion_matrix['TP'] + confusion_matrix['FP']) > 0 else 0
+    accuracy_dist1 = confusion_matrix['TN'] / (confusion_matrix['TN'] + confusion_matrix['FN']) * 100 if (confusion_matrix['TN'] + confusion_matrix['FN']) > 0 else 0
 
     return {
       'accuracy': accuracy, 
