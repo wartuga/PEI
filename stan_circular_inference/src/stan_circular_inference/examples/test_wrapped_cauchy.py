@@ -2,8 +2,8 @@ from pycircstat2.distributions import wrapcauchy
 import matplotlib.pyplot as plt
 import numpy as np
 
-size = 5000
-mu, rho = -np.pi/2, 0.3
+size = 50
+mu, rho = 7/4 * np.pi, 0.7
 x = wrapcauchy.rvs(size=size, mu=mu, rho=rho)
 
 from stan_circular_inference.factories.wrapped_cauchy_factory import WrappedCauchy
@@ -25,7 +25,7 @@ service.circular_graphic(x, min_val=0, max_val=2*np.pi)
 
 # aumentar # de samples
 posterior = service.build_model(data)
-fit = service.get_samples(posterior, size*6)
+fit = service.get_samples(posterior, size*1000)
 values = service.get_values(fit, parameters=['mu', 'rho'])
 
 service.get_statistics(fit)
