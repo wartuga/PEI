@@ -17,31 +17,6 @@ class BayesianInferenceService:
     else:
       self.model = model
 
-  def __get_percentiles(self, param, confidence_interval = 2.5, round_to=2):
-    """
-    Auxiliary function to compute percentiles.
-    
-    Parameters
-    - `param` (array like or pd.Series): the parameter samples from a posterior distribution
-    - `confidence_interval` (float): the desired confidence interval (default is 2.5 for
-      a 95% interval)
-    - `round_to` (int): number of decimals after the comma to round the results (default is 2)
-    
-    Aspects in consideration of the parameters:
-    - Keep the lower confidence interval always to the left, which means that
-    the confidence_interval parameter must be lower or equal to 50
-    - If the confidence_interval is 50, it is only computed once
-
-    Returns
-      (pd.DataFrame): DataFrame with parameters as rows and HDI bounds as columns. Transposed (T) so parameters are rows and percentiles are columns.
-    """
-    return pd.Series({
-        f'hdi_{confidence_interval}%' : np.percentile(param, confidence_interval).round(round_to),
-        f'hdi_{(100 - confidence_interval)}%': np.percentile(param, 100 - confidence_interval).round(round_to)
-    }) if confidence_interval != 50 else pd.Series({
-        'hdi_50%': np.percentile(param, 50).round(round_to)
-    })
-
   def build_model(self, data):
     """
     Build the model
@@ -109,7 +84,7 @@ class BayesianInferenceService:
     
     return vals
 
-  def get_statistics(self, fit, confidence_interval=11):
+  def get_statistics(self, fit, confidence_interval=89):
     """
     Get the ArviZ summary and costumize it with the desired confidence interval
     
@@ -117,41 +92,24 @@ class BayesianInferenceService:
     :param confifence_interval: Description
     :param round_to: Description
     """
+
     # Convert to ArviZ InferenceData object
     az_data = az.from_pystan(fit)
 
     # First get the default summary (includes mean, sd, ess, r_hat)
-    summary_df = az.summary(az_data, round_to=2)
+    summary_df = az.summary(az_data, round_to=5, circ_var_names=['mu'], hdi_prob=confidence_interval/100)
 
-    # Initialize the minimum value for the confidence interval
-    min_val = None
-    # Initialize manual percentiles variable
-    percentiles = None
+    summary_df['mean'].mu = summary_df['mean'].mu % (2*np.pi)
 
-    # If the confidence interval is different from the default 3%
-    if confidence_interval != 3:
+    min_hdi = (100 - confidence_interval) / 2
+    max_hdi = confidence_interval + min_hdi
 
-      # This ensures that the lower confidence interval is always to the left
-      min_val = min(confidence_interval, 100 - confidence_interval)
+    summary_df[f'hdi_{min_hdi}%'].mu = summary_df[f'hdi_{min_hdi}%'].mu % (2*np.pi)
+    summary_df[f'hdi_{max_hdi}%'].mu = summary_df[f'hdi_{max_hdi}%'].mu % (2*np.pi)
 
-      # Add the confidence intervals manually
-      percentiles = pd.DataFrame({param: self.__get_percentiles(fit[param], min_val) for param in fit.keys()}).T
+    print(summary_df)
 
-    if percentiles is not None:
-      # Combine with ArviZ summary
-      summary_df = pd.concat([summary_df, percentiles], axis=1)
-
-      # Drop the default columns if different from the desired ones
-      summary_df.drop(columns=["hdi_3%", "hdi_97%"], inplace=True)
-
-      print(
-        summary_df[["mean", "sd", f"hdi_{min_val}%", f"hdi_{100 - min_val}%", "mcse_mean", "mcse_sd", "ess_bulk", "ess_tail", "r_hat"]]
-        if confidence_interval != 50 
-        else summary_df[["mean", "sd", "hdi_50%", "mcse_mean", "mcse_sd", "ess_bulk", "ess_tail", "r_hat"]]
-      )
-    
-    else:
-      print(summary_df)
+    return summary_df
     
   def get_pystan_statistics(self, data, parameters, confidence_interval=11, sample_amount=50000, init=None):
     posterior = self.build_model(data)

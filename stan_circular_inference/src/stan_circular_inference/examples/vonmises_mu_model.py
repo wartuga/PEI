@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.stats import vonmises
 import time
-import stan_circular_inference.src.stan_circular_inference.service.bayesian_inference as bayesian_inference
+from stan_circular_inference.service.bayesian_inference import BayesianInferenceService
 
 model = """
 data {
@@ -31,9 +31,11 @@ model_data = {'N': len(data), 'values': data, 'kappa': kappa_real}
 
 init = [{'mu': float(mu_real)} for _ in range(4)]
 
+service = BayesianInferenceService(model)
+
 start_time = time.time()
-interest_parameter_values = bayesian_inference.get_pystan_statistics(model_data=model_data, model=model, parameter='mu', sample_amount=100000, init=init)
+interest_parameter_values = service.get_pystan_statistics(data=model_data, parameters=['mu'], sample_amount=100000, init=init)
 
 print(f"Time taken: {time.time() - start_time:.2f} seconds")
 
-bayesian_inference.circular_graphic(interest_parameter_values, data, min_val=0.7, max_val=0.9, density=True)
+service.circular_graphic(interest_parameter_values['mu'], min_val=0.7, max_val=0.9, density=True)

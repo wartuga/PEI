@@ -4,7 +4,7 @@ from typing import Dict, Any
 
 class WrappedCauchy(ProbabilisticModel):
     def __init__(self, mu: MeanParameter, rho: VarianceParameter):
-        super().__init__("WrappedCauchy")
+        super().__init__("Wrapped Cauchy")
         self.mu = mu
         self.rho = rho
     
@@ -53,8 +53,8 @@ class WrappedCauchy(ProbabilisticModel):
     
     def get_parameters_prior(self) -> Dict[str, Any]:
         return {
-            'mu': str(self.mu),
-            'rho': str(self.rho)
+            'mu': self.mu,
+            'rho': self.rho
         }
     
     """

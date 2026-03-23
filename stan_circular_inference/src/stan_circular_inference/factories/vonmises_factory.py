@@ -4,7 +4,7 @@ from typing import Dict, Any
 
 class VonMisesMK(ProbabilisticModel):
     def __init__(self, mu: MeanParameter, kappa: VarianceParameter):
-        super().__init__("Von Mises")
+        super().__init__('Von Mises')
         self.mu = mu
         self.kappa = kappa
     
@@ -32,8 +32,8 @@ class VonMisesMK(ProbabilisticModel):
     
     def get_parameters_prior(self) -> Dict[str, Any]:
         return {
-            'mu': str(self.mu),
-            'kappa': str(self.kappa)
+            'mu': self.mu,
+            'kappa': self.kappa
         }
     
 class VonMisesM(ProbabilisticModel):
@@ -66,5 +66,5 @@ class VonMisesM(ProbabilisticModel):
     
     def get_parameters_prior(self) -> Dict[str, Any]:
         return {
-            'mu': str(self.mu)
+            'mu': self.mu
         }

@@ -34,6 +34,6 @@ class Cardioid(ProbabilisticModel):
     
     def get_parameters_prior(self) -> Dict[str, Any]:
         return {
-            'mu': str(self.mu),
-            'rho': str(self.rho)
+            'mu': self.mu,
+            'rho': self.rho
         }
