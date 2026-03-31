@@ -1,9 +1,9 @@
 import pytest
-from pycircstat2.distributions import vonmises as vonmises
+from pycircstat2.distributions import wrapcauchy as wrapcauchy
 import random
 import numpy as np
-from stan_circular_inference.factories.vonmises_factory import VonMisesMK
-from stan_circular_inference.factories.distributions_factory import Uniform, Exponential
+from stan_circular_inference.factories.wrapped_cauchy_factory import WrappedCauchy
+from stan_circular_inference.factories.distributions_factory import Uniform, Normal
 from stan_circular_inference.service import BayesianInferenceService
 from utils import correct_inferred_values
 
@@ -12,23 +12,23 @@ x0 = 10
 x1 = 100
 x2 = 10000
 
-class TestVonMises:
+class TestWrappedCauchy:
     def test_parameters_inference(self):
         sample_size = 20
         real_mu = random.uniform(0, 2*np.pi)
         print(f'real mu {real_mu}')
-        real_kappa = random.uniform(0, 7)  # não funciona com np.inf
-        print(f'real kappa {real_kappa}')
+        real_rho = random.uniform(0, 1)  # não funciona com np.inf
+        print(f'real rho {real_rho}')
 
         mu = Uniform(0, 2*np.pi)
-        kappa = Exponential(0.1)
-        model = VonMisesMK(mu, kappa)
+        rho = Normal(0.5, 0.5)
+        model = WrappedCauchy(mu, rho)
         service = BayesianInferenceService(model)
 
         correct = 0
 
         for _ in range(100):
-            samples = vonmises.rvs(kappa=real_kappa, mu=real_mu, size=sample_size)
+            samples = wrapcauchy.rvs(rho=real_rho, mu=real_mu, size=sample_size)
 
             data = {
                 'N' : sample_size,
@@ -44,10 +44,10 @@ class TestVonMises:
             mu_hdi_2_5 = statistics['hdi_2.5%'].mu
             mu_hdi_97_5 = statistics['hdi_97.5%'].mu
 
-            kappa_hdi_2_5 = statistics['hdi_2.5%'].kappa
-            kappa_hdi_97_5 = statistics['hdi_97.5%'].kappa
+            rho_hdi_2_5 = statistics['hdi_2.5%'].rho
+            rho_hdi_97_5 = statistics['hdi_97.5%'].rho
 
-            if correct_inferred_values(real_mu, mu_hdi_2_5, mu_hdi_97_5, real_kappa, kappa_hdi_2_5, kappa_hdi_97_5):
+            if correct_inferred_values(real_mu, mu_hdi_2_5, mu_hdi_97_5, real_rho, rho_hdi_2_5, rho_hdi_97_5):
                 correct = correct + 1
         
         assert correct >= 95
@@ -55,16 +55,16 @@ class TestVonMises:
     def test_circular_mu(self):
         sample_size = 20
         real_mu = 0
-        real_kappa = 2
+        real_rho = 0.7
         mu = Uniform(0, 2*np.pi)
-        kappa = Exponential(0.1)
-        model = VonMisesMK(mu, kappa)
+        rho = Normal(0.5, 0.5)
+        model = WrappedCauchy(mu, rho)
         service = BayesianInferenceService(model)
 
         correct = 0
 
         for _ in range(100):
-            samples = vonmises.rvs(kappa=real_kappa, mu=real_mu, size=sample_size)
+            samples = wrapcauchy.rvs(rho=real_rho, mu=real_mu, size=sample_size)
 
             data = {
                 'N' : sample_size,
@@ -80,16 +80,16 @@ class TestVonMises:
             mu_hdi_2_5 = statistics['hdi_2.5%'].mu
             mu_hdi_97_5 = statistics['hdi_97.5%'].mu
 
-            kappa_hdi_2_5 = statistics['hdi_2.5%'].kappa
-            kappa_hdi_97_5 = statistics['hdi_97.5%'].kappa
+            rho_hdi_2_5 = statistics['hdi_2.5%'].rho
+            rho_hdi_97_5 = statistics['hdi_97.5%'].rho
 
-            if correct_inferred_values(real_mu, mu_hdi_2_5, mu_hdi_97_5, real_kappa, kappa_hdi_2_5, kappa_hdi_97_5):
+            if correct_inferred_values(real_mu, mu_hdi_2_5, mu_hdi_97_5, real_rho, rho_hdi_2_5, rho_hdi_97_5):
                 correct = correct + 1
         
         assert correct >= 95
 
     def test_degradation(self):
-
+        
         n_simulations = [
             x0,
             x1,
@@ -98,10 +98,10 @@ class TestVonMises:
 
         sample_size = 20
         real_mu = 0
-        real_kappa = 2
+        real_rho = 0.7
         mu = Uniform(0, 2*np.pi)
-        kappa = Exponential(0.1)
-        model = VonMisesMK(mu, kappa)
+        rho = Normal(0.5, 0.5)
+        model = WrappedCauchy(mu, rho)
         service = BayesianInferenceService(model)
 
         samples = []
@@ -109,7 +109,7 @@ class TestVonMises:
         n_cycles = 100
 
         for _ in range(n_cycles):
-            samples.append(vonmises.rvs(kappa=real_kappa, mu=real_mu, size=sample_size))
+            samples.append(wrapcauchy.rvs(rho=real_rho, mu=real_mu, size=sample_size))
 
         coverage_10 = 0
         coverage_100 = 0
@@ -135,10 +135,10 @@ class TestVonMises:
                 mu_hdi_2_5 = statistics['hdi_2.5%'].mu
                 mu_hdi_97_5 = statistics['hdi_97.5%'].mu
 
-                kappa_hdi_2_5 = statistics['hdi_2.5%'].kappa
-                kappa_hdi_97_5 = statistics['hdi_97.5%'].kappa
+                rho_hdi_2_5 = statistics['hdi_2.5%'].rho
+                rho_hdi_97_5 = statistics['hdi_97.5%'].rho
 
-                if correct_inferred_values(real_mu, mu_hdi_2_5, mu_hdi_97_5, real_kappa, kappa_hdi_2_5, kappa_hdi_97_5):
+                if correct_inferred_values(real_mu, mu_hdi_2_5, mu_hdi_97_5, real_rho, rho_hdi_2_5, rho_hdi_97_5):
                     correct = correct + 1
 
             if n_sim == 10:
@@ -149,8 +149,3 @@ class TestVonMises:
                 coverage_10000 = correct / n_cycles
         
         assert coverage_10 <= coverage_100 <= coverage_10000
-    
-#test_class = TestVonMises() # valores obtidos no último teste
-#test_class.test_confidence_95() # 98
-#test_class.test_circular_mu() # 97
-#test_class.test_degradation()
