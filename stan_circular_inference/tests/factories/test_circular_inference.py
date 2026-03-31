@@ -169,7 +169,7 @@ class TestCardioid(BaseCircularTest):
     """Tests for the Cardioid distribution."""
     dist_rvs = staticmethod(cardioid.rvs)
     scale_prior = Normal(0.25, 0.25)
-    scale_name = 'kappa'
+    scale_name = 'rho'
     model_factory = Cardioid
     real_scale_fixed = 0.3
     real_scale_random_range = (0, 0.5)

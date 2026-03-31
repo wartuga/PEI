@@ -17,7 +17,7 @@ class TestCardioid:
         sample_size = 20
         real_mu = random.uniform(0, 2*np.pi)
         print(f'real mu {real_mu}')
-        real_rho = random.uniform(0, 0.5)  # não funciona com np.inf
+        real_rho = random.uniform(0, 0.5)
         print(f'real rho {real_rho}')
 
         mu = Uniform(0, 2*np.pi)
