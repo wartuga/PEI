@@ -64,7 +64,7 @@ class VonMisesM(ProbabilisticModel):
 
         return model_code
     
-    def get_parameters_prior(self) -> Dict[str, Any]:
+    def get_parameters_prior(self) -> Dict[str, MeanParameter]:
         return {
             'mu': self.mu
         }

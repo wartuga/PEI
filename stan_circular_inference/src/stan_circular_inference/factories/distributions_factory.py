@@ -43,7 +43,6 @@ class Exponential(VarianceParameter):
     def __str__(self):
         return f"Exponential(lambda={self.lambda_})"
 
-# TODO testar
 class Bernoulli(MeanParameter):
     """Distribuição Bernoulli para variáveis binárias (0 ou 1)"""
     
@@ -62,7 +61,6 @@ class Bernoulli(MeanParameter):
     def __str__(self):
         return f'Bernoulli(p={self.p})'
 
-# TODO testar
 class Poisson(MeanParameter):
     """Distribuição Poisson para dados de contagem"""
     

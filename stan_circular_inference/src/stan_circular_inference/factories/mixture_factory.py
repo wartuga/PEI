@@ -21,10 +21,6 @@ class Mixture(ProbabilisticModel):
         else:
             self.dist2_mu = priors2['mu'].get_code()
             self.dist2_rho = priors2['rho'].get_code()
-
-    # vonmises: von_mises_lpdf(values[n] | mu1, kappa1)
-    # wrappedcauchy: target += -log(2*pi()) + log1m(rho2) - log1p(rho2 - 2*rho*cos(values[n] - mu));
-    # cardioid: target += -log(2*pi()) + log1p(2*rho*cos(values[n] - mu));
     
     def gen_stan_model(self) -> str:
         model_code = f"""
@@ -67,10 +63,10 @@ class Mixture(ProbabilisticModel):
                 real<lower=0, upper=2*pi()> mu1;
                 real<lower=0, upper=2*pi()> mu2;
                 
-                {'real<lower=0> kappa1;' if self.dist1.name == 'Von Mises' 
+                {'real<lower=0, upper=50> kappa1;' if self.dist1.name == 'Von Mises' 
                 else 'real<lower=0, upper=0.5> rho1;' if self.dist1.name == 'Cardioid'
                 else 'real<lower=0, upper=1> rho1;'}
-                {'real<lower=0> kappa2;' if self.dist2.name == 'Von Mises'
+                {'real<lower=0, upper=50> kappa2;' if self.dist2.name == 'Von Mises'
                 else 'real<lower=0, upper=0.5> rho2;' if self.dist2.name == 'Cardioid'
                 else 'real<lower=0, upper=1> rho2;'}
 
@@ -106,18 +102,3 @@ class Mixture(ProbabilisticModel):
             'mu': self.mu,
             'rho': self.rho
         }
-    
-    def __cardioid_function_code():
-        return f"""
-        real cardioid_lpdf(real value, real mu, real rho) {{
-            return -log(2*pi()) + log1p(2*rho*cos(value - mu));
-        }}
-        """
-    
-    def __wrapped_cauchy_function_code():
-        return f"""
-        real wrapped_cauchy_lpdf(real value, real mu, real rho) {{
-            real rho2 = square(rho);
-            return -log(2*pi()) + log1m(rho2) - log1p(rho2 - 2*rho*cos(value - mu));
-        }}
-        """

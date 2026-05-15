@@ -9,5 +9,11 @@ __all__ = [
     'Bernoulli',
     'Poisson',
     'VonMisesM',
-    'VonMisesMK'
+    'VonMisesMK',
+    'Cardioid',
+    'WrappedCauchy',
+    'Mixture',
+    'ProbabilisticModel',
+    'MeanParameter',
+    'VarianceParameter'
 ]

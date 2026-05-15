@@ -14,7 +14,6 @@ x0 = 10
 x1 = 100
 x2 = 10000
 
-
 class BaseCircularTest:
     """
     Base class for circular distribution tests.
@@ -182,3 +181,5 @@ class TestWrappedCauchy(BaseCircularTest):
     model_factory = WrappedCauchy
     real_scale_fixed = 0.7
     real_scale_random_range = (0, 1)
+
+# enquanto faço a documentação fazer um draft(esboço do artigo (documentação da lib como artigo)) para o journal of statistical software

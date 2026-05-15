@@ -1,13 +1,6 @@
-import stan
-import asyncio
-import arviz as az
-import pandas as pd
-import nest_asyncio
-import stan_circular_inference.src.stan_circular_inference.service.bayesian_inference as bayesian_inference
-
-# Needed to run the code using a WSL terminal or WSL extension in VSCode
-# It allows nested event loops to run
-nest_asyncio.apply()
+#import stan_circular_inference.src.stan_circular_inference.service.bayesian_inference as bayesian_inference
+from stan_circular_inference.service.bayesian_inference import BayesianInferenceService
+import os
 
 model = """
 data { 
@@ -32,7 +25,13 @@ model {
 }
 """
 
+curr_dir = os.path.dirname(os.path.abspath(__file__))
+f = open(f'{curr_dir}/model1.txt')
+read_model = f.read()
+
 data = {'k1':5, 'n1':10, 'k2':7, 'n2':10}
 
-# Run and await the main async function
-asyncio.run(bayesian_inference.get_pystan_statistics(data, model))
+#service = BayesianInferenceService(model)
+service = BayesianInferenceService(read_model)
+posterior = service.build_model(data)
+fit = service.get_samples(posterior, sample_amount=3000)

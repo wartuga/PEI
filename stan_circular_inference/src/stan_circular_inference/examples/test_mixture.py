@@ -75,12 +75,12 @@ posterior = service.build_model(data=data)
 fit = service.get_samples(posterior=posterior, sample_amount=1000)
 
 dist1 = [
-    1 if sum(1 for v in values if v > 0.5) >= len(values) / 2 else 0
+    0 if sum(1 for v in values if v > 0.5) >= len(values) / 2 else 1
     for values in fit['mixing_weight']
 ]
 
-real_dist1 = [1] * size
-real_dist2 = [0] * size
+real_dist1 = [0] * size
+real_dist2 = [1] * size
 
 real_values = real_dist1 + real_dist2
 

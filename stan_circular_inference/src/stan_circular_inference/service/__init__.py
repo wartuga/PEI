@@ -3,5 +3,6 @@ from .bayesian_inference import (
 )
 
 __all__ = [
-    'BayesianInferenceService'
+    'BayesianInferenceService',
+    'DataType'
 ]

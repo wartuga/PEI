@@ -50,7 +50,7 @@ class TestVonMises:
             if correct_inferred_values(real_mu, mu_hdi_2_5, mu_hdi_97_5, real_kappa, kappa_hdi_2_5, kappa_hdi_97_5):
                 correct = correct + 1
         
-        assert correct >= 95
+        assert correct >= 95 # recolher os valores obtidos e adicionar ao relatório produzir a média e o desvio padrão em x execuções
 
     def test_circular_mu(self):
         sample_size = 20
