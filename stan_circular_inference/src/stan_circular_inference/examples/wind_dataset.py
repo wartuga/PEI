@@ -34,7 +34,7 @@ def run():
 
     start_time = time.time()
 
-    interest_parameter_values = service.get_pystan_statistics(data=test_data, parameters=['mu', 'kappa'], sample_amount=10000)
+    interest_parameter_values = service.get_pystan_statistics(data=model1_data, parameters=['mu', 'kappa'], sample_amount=10000)
 
     #interest_parameter_values = service.get_pystan_statistics(data=model1_data, parameters=['mu', 'kappa'], sample_amount=1000)
 
