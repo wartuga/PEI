@@ -8,6 +8,7 @@ from stan_circular_inference.factories.model_factory import ProbabilisticModel
 from stan_circular_inference.service.data_type import DataType
 import math
 import pandas as pd
+import re
 
 class BayesianInferenceService:
   """
@@ -94,6 +95,68 @@ class BayesianInferenceService:
     else:
       self.model = model
 
+    if 'functions' not in self.model and self.__dist_in_model():
+        self.model = """
+        functions{
+        
+        }
+        """ + self.model[:]
+    
+    str_idx = self.model.find('functions')
+    par_idx = self.model.find('{', str_idx) + 1
+    
+    if self.model.find('~ cardioid_lpdf') != -1:
+        self.model = self.model[:par_idx] + """
+        real cardioid_lpdf(real value, real mu, real rho) {
+            return -log(2*pi()) + log1p(2*rho*cos(value - mu));
+        }
+        """ + self.model[par_idx + 1:]
+    if self.model.find('~ cardioid') != -1:
+        self.model = self.model[:par_idx] + """
+        real cardioid_lpdf(real value, real mu, real rho) {
+            return -log(2*pi()) + log1p(2*rho*cos(value - mu));
+        }
+        """ + self.model[par_idx + 1:]
+        self.model = self.__replace_sampling_statement(self.model, 'cardioid')
+    if self.model.find('~ wrapped_cauchy_lpdf') != -1:
+        self.model = self.model[:par_idx] + """
+        real wrapped_cauchy_lpdf(real value, real mu, real rho) {
+            real rho_sqr = square(rho);
+            return -log(2*pi()) + log1m(rho_sqr) - log1p(rho_sqr - 2*rho*cos(value - mu));
+        }
+        """ + self.model[par_idx + 1:]
+    if self.model.find('~ wrapped_cauchy') != -1:
+        self.model = self.model[:par_idx] + """
+        real wrapped_cauchy_lpdf(real value, real mu, real rho) {
+            real rho_sqr = square(rho);
+            return -log(2*pi()) + log1m(rho_sqr) - log1p(rho_sqr - 2*rho*cos(value - mu));
+        }
+        """ + self.model[par_idx + 1:]
+        self.model = self.__replace_sampling_statement(self.model, 'wrapped_cauchy')
+
+  def __replace_sampling_statement(self, model_code: str, dist_name: str) -> str:
+    """
+    Replace sampling statements of the form:
+        lhs ~ dist_name(param1, param2);
+    with:
+        target += dist_name_lpdf(lhs | param1, param2);
+
+    Assumes exactly two parameters inside parentheses.
+    """
+    # Pattern matches any whitespace between tokens
+    pattern = rf'(\S+)\s*~\s*{re.escape(dist_name)}\s*\(\s*([^,]+)\s*,\s*([^)]+)\s*\)\s*;'
+    
+    def repl(match):
+        lhs = match.group(1)
+        param1 = match.group(2).strip()
+        param2 = match.group(3).strip()
+        return f'target += {dist_name}_lpdf({lhs} | {param1}, {param2});'
+    
+    return re.sub(pattern, repl, model_code)
+  
+  def __dist_in_model(self):
+      return 'cardioid' in self.model or 'cardioid_lpdf' in self.model or 'wrapped_cauchy' in self.model or 'wrapped_cauchy_lpdf' in self.model
+
   def build_model(self, data:dict) -> stan.model:
     """
     Compile and build the Stan model with the provided data.
@@ -165,6 +228,7 @@ class BayesianInferenceService:
         if type(e) is RuntimeError:
             raise RuntimeError("Try specifying initial values, reducing ranges of constrained values, reparameterizing the model.")
 
+  # adicionar testes para esta fun sobre o timeouterror
   def get_samples(self, posterior:stan.model, sample_amount:int=50000, n_chains:int=4, init=None):
     """
     Draw samples from the posterior distribution using MCMC.
@@ -218,7 +282,7 @@ class BayesianInferenceService:
         else:
             return posterior.sample(num_chains=n_chains, num_samples=sample_amount)
     except Exception as e:
-        raise TimeoutError("The model timeout during sampling, try reducing the sampling amount or passing inital values!") 
+        raise TimeoutError("The model timeout during sampling, try reducing the sampling amount or passing inital values!")
 
   def get_values(self, fit, parameters:list[str]) -> dict:
     """
@@ -260,22 +324,35 @@ class BayesianInferenceService:
     >>> mixing_second = samples["mixing_prop.2"]
     """
 
-    vals = {}
+    vals = {p: [] for p in parameters}
     chains = fit.stan_outputs
 
-    for parameter in parameters:
-        vals[parameter] = []
-
-        for chain in chains:
-            lines = chain.decode('utf-8').strip().split('\n')
-
+    for chain in fit.stan_outputs:
+        lines = chain.decode('utf-8').strip().split('\n')
         for line in lines:
             data = json.loads(line)
             values = data['values']
-            if data['topic'] == 'sample' and isinstance(values, dict):
-                interest_parameter = values[parameter]
+            if data.get('topic') != 'sample':
+                continue
+            values = data.get('values')
+            if not isinstance(values, dict):
+                continue
+            for parameter in parameters:
+                vals[parameter].append(values[parameter])
+
+    # for parameter in parameters:
+    #     vals[parameter] = []
+
+    #     for chain in chains:
+    #         lines = chain.decode('utf-8').strip().split('\n')
+
+    #     for line in lines:
+    #         data = json.loads(line)
+    #         values = data['values']
+    #         if data['topic'] == 'sample' and isinstance(values, dict):
+    #             interest_parameter = values[parameter]
                 
-                vals[parameter].append(interest_parameter)
+    #             vals[parameter].append(interest_parameter)
     
     return vals
 
@@ -357,8 +434,8 @@ class BayesianInferenceService:
     print(summary_df)
 
     return summary_df
-    
-  def get_pystan_statistics(self, data:dict, parameters:list[str], confidence_interval:int=11, sample_amount:int=50000, init=None) -> dict:
+  
+  def get_pystan_statistics(self, data:dict, parameters:list[str], confidence_interval:int=11, sample_amount:int=50000, n_chains:int=4, init=None) -> dict:
     """
     Run a full PyStan inference pipeline and return posterior samples for specified parameters.
 
@@ -405,7 +482,7 @@ class BayesianInferenceService:
     >>> first_mixing_weight = raw_samples['mixing_weight.1']
     """
     posterior = self.build_model(data)
-    fit = self.get_samples(posterior, sample_amount, init)
+    fit = self.get_samples(posterior, sample_amount, n_chains, init)
     self.get_statistics(fit, confidence_interval)
     return self.get_values(fit, parameters)
   
@@ -468,7 +545,7 @@ class BayesianInferenceService:
         produces a smoothed circular density plot using Gaussian KDE.
     min_val : float, optional
         Minimum value (in radians) to include in the plot. If `None`, taken from
-        `data` (minimum of the provided dataset).
+        `data` (minimum of the provided dataset). Used to filter the values.
     max_val : float, optional
         Maximum value (in radians) to include in the plot. If `None`, taken from
         `data` (maximum of the provided dataset).
@@ -958,9 +1035,8 @@ class BayesianInferenceService:
     }
 
   def multiple_graphics(self, interest_parameter_values, n_intervals:int=100, density:bool=False, 
-                                min_val=None, max_val=None, show_values:bool=True,
-                                value_format:str=".3f", param_names:list[str]=None, figsize:tuple=(14, 10),
-                                share_scale:bool=True, parameters_type:list[bool]=[]):
+                                min_val=None, max_val=None, param_names:list[str]=None, 
+                                figsize:tuple=(14, 10), share_scale:bool=True, parameters_type:list[bool]=[]):
     """
     Create multiple subplots (circular or linear) for several parameters.
 
@@ -984,14 +1060,6 @@ class BayesianInferenceService:
         must match the number of parameters in order.
     max_val : scalar, dict, or list, optional
         Upper bound(s) for the plot range. Format same as `min_val`.
-    data_type : DataType, default DataType.RADS
-        Enum defining the expected input range (e.g., `[0, 2π)` for radians).
-        Used to normalise values before plotting.
-    show_values : bool, default True
-        If True, the numeric values of the bars/density are shown on the plot
-        (specific to the helper method).
-    value_format : str, default ".3f"
-        Format string for the displayed numeric values (e.g., `".2f"`).
     param_names : list of str, optional
         Names of the parameters (used for titles). If `None`, keys of
         `interest_parameter_values` are used.
@@ -1105,7 +1173,7 @@ class BayesianInferenceService:
         if param_type:
             # Circular graph
             new_ax = self._draw_circular_subplot(ax, filtered_values, param_min_val, param_max_val, 
-                                                n_intervals, density, show_values, value_format, param_name)
+                                                n_intervals, density, param_name)
             
             # Save y_max for shared scale
             if hasattr(ax, '_y_max'):
@@ -1274,7 +1342,7 @@ class BayesianInferenceService:
     
     return ax
 
-  def _draw_linear_subplot(self, ax, filtered_values, param_min_val, param_max_val, param_name, n_intervals = 20):
+  def _draw_linear_subplot(self, ax, filtered_values, param_min_val, param_max_val, param_name, n_intervals = 100):
     """
     Auxiliar function to `multiple_graphics` function.
     

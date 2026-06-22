@@ -3,6 +3,7 @@ import pytest
 import json
 import pandas as pd
 import numpy as np
+import arviz as az
 
 # Suppress all warnings from stan library
 warnings.filterwarnings("ignore")
@@ -35,10 +36,8 @@ example_model = '''
 '''
 
 @pytest.fixture
-def service():
-    mock_model = Mock()
-    mock_model.gen_stan_model.return_value = example_model
-    return BayesianInferenceService(mock_model)
+def bayesian_service():
+    return BayesianInferenceService(example_model)
 
 @pytest.fixture
 def mock_stan_build():
@@ -94,26 +93,14 @@ def mock_fit_single_chain():
 
 @pytest.fixture
 def mock_az_data():
-    """Cria um mock de dados ArviZ"""
-    return Mock()
-
-@pytest.fixture
-def mock_summary_df():
-    """Cria um mock do DataFrame de summary do ArviZ"""
-    # Cria um DataFrame real para simular o retorno de az.summary
-    data = {
-        "mean": [1.23, 0.75],
-        "sd": [0.12, 0.08],
-        "hdi_3%": [1.01, 0.61],
-        "hdi_97%": [1.45, 0.89],
-        "mcse_mean": [0.01, 0.01],
-        "mcse_sd": [0.01, 0.01],
-        "ess_bulk": [500.0, 450.0],
-        "ess_tail": [480.0, 430.0],
-        "r_hat": [1.01, 1.02]
+    """Create a real (minimal) InferenceData object for testing."""
+    # Simulate posterior draws for two parameters
+    posterior = {
+        "mu": np.random.normal(3.14, 0.1, size=(4, 100)),   # (chains, draws)
+        "kappa": np.random.gamma(2, 0.5, size=(4, 100))
     }
-    index = ["mu", "kappa"]
-    return pd.DataFrame(data, index=index)
+    coords = {"chain": [0,1,2,3], "draw": np.arange(100)}
+    return az.from_dict(posterior=posterior, coords=coords)
 
 class MockFit:
     def __init__(self, chains, mu_values, kappa_values):

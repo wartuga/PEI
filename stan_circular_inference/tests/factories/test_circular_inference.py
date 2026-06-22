@@ -25,7 +25,7 @@ class BaseCircularTest:
         real_scale_fixed    : fixed scale value for the `circular_mu` and `degradation` tests
         real_scale_random_range : tuple (low, high) for generating random scale in the parameters test
     """
-    # Default test settings (can be overridden by subclasses)
+
     sample_size = 20
     n_cycles = 100       # number of datasets for degradation test
 
@@ -42,7 +42,7 @@ class BaseCircularTest:
         service = BayesianInferenceService(model)
 
         correct = 0
-        for _ in range(100):
+        for _ in range(self.n_cycles):
             # Generate data from the true distribution
             samples = self.dist_rvs(**{self.scale_name: real_scale,
                                        'mu': real_mu,
@@ -77,7 +77,7 @@ class BaseCircularTest:
         service = BayesianInferenceService(model)
 
         correct = 0
-        for _ in range(100):
+        for _ in range(self.n_cycles):
             samples = self.dist_rvs(**{self.scale_name: real_scale,
                                        'mu': real_mu,
                                        'size': self.sample_size})

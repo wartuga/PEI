@@ -45,8 +45,6 @@ for mu1, mu2 in zip(mu1_values, mu2_values):
                 posterior = service.build_model(data)
                 fit = service.get_samples(posterior, sample_amount=samples_amount)
 
-                print(fit['mixing_weight'])
-
                 inferred_labels = [
                     0 if np.mean(values) > 0.5 else 1
                     for values in fit['mixing_weight']

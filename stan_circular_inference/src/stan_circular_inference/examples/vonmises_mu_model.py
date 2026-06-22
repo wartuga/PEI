@@ -23,7 +23,7 @@ model {
 }
 """
 
-mu_real = np.pi/4
+mu_real = np.pi
 kappa_real = 15
 data = vonmises.rvs(kappa_real, loc=mu_real, size=100)
 

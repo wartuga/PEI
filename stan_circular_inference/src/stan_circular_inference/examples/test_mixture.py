@@ -69,12 +69,14 @@ samples = np.concatenate([samples1, samples2])
 
 service = BayesianInferenceService(model)
 
+service.circular_graphic(samples, min_val=0, max_val=2*np.pi)
+
 data = {'N': len(samples), 'values': samples}
 
 posterior = service.build_model(data=data)
 fit = service.get_samples(posterior=posterior, sample_amount=1000)
 
-dist1 = [
+inferred_labels = [
     0 if sum(1 for v in values if v > 0.5) >= len(values) / 2 else 1
     for values in fit['mixing_weight']
 ]
@@ -84,65 +86,27 @@ real_dist2 = [1] * size
 
 real_values = real_dist1 + real_dist2
 
-incorrect_values = [(real_val, val) for real_val, val in zip(real_values, dist1) if real_val != val]
+incorrect_values = [(real_val, val) for real_val, val in zip(real_values, inferred_labels) if real_val != val]
 
-values = service.get_values(fit=fit, 
-        parameters=[
-            'mu1', 'mu2', 
-            'mixing_weight.1',
-            'mixing_weight.2',
-            'mixing_weight.3',
-            'mixing_weight.4',
-            'mixing_weight.5',
-            'mixing_weight.6',
-            'mixing_weight.7',
-            'mixing_weight.8',
-            'mixing_weight.9',
-            'mixing_weight.10',
-            'mixing_weight.11',
-            'mixing_weight.12',
-            'mixing_weight.13',
-            'mixing_weight.14',
-            'mixing_weight.15',
-            'mixing_weight.16',
-            'mixing_weight.17',
-            'mixing_weight.18',
-            'mixing_weight.19',
-            'mixing_weight.20',
-            'mixing_weight.195'
-        ])
+# values = service.get_values(fit=fit, 
+#         parameters=[
+#             'mu1', 'mu2', 
+#             'mixing_weight.1',
+#             'mixing_weight.195'
+#         ])
 
-service.multiple_graphics(
-    values,
-    min_val=0, 
-    max_val=2*np.pi, 
-    param_names=[
-        'mu1', 'mu2',
-        'mixing_weight.1',
-        'mixing_weight.2',
-        'mixing_weight.3',
-        'mixing_weight.4',
-        'mixing_weight.5',
-        'mixing_weight.6',
-        'mixing_weight.7',
-        'mixing_weight.8',
-        'mixing_weight.9',
-        'mixing_weight.10',
-        'mixing_weight.11',
-        'mixing_weight.12',
-        'mixing_weight.13',
-        'mixing_weight.14',
-        'mixing_weight.15',
-        'mixing_weight.16',
-        'mixing_weight.17',
-        'mixing_weight.18',
-        'mixing_weight.19',
-        'mixing_weight.20', 
-        'mixing_weight.195'
-    ],
-    parameters_type=[True, True, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False])
+# service.multiple_graphics(
+#     values,
+#     min_val=0, 
+#     max_val=2*np.pi, 
+#     param_names=[
+#         'mu1', 'mu2',
+#         'mixing_weight.1',
+#         'mixing_weight.195'
+#     ],
+#     parameters_type=[True, True, False, False])
 
-# statistics = service.match_points_to_distributions(samples, real_values, dist1, min_val=0, max_val=2*np.pi, data_type=DataType.RADS)
+statistics = service.match_points_to_distributions(samples, real_values, inferred_labels, min_val=0, max_val=2*np.pi, data_type=DataType.RADS)
 
 # print(statistics['confusion_matrix'])
 

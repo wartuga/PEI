@@ -13,3 +13,6 @@ class DataType(Enum):
     HOURS = (0, 24)
     MONTHS = (0, 12)
     PERCENT = (0, 1)
+    WEEK = (1, 7)
+    WEEKS = (1, 52)
+    MONTH = (1, 31)

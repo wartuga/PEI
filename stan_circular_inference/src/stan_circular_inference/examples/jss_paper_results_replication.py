@@ -1,0 +1,313 @@
+"""
+label_switching.png is the only problematic to replicate since
+it is a random phenome that took a lot of iterations to
+appear. Until the mixture model accuracy result in a low 
+percentage (e.g. 0%)
+
+To run the script:
+ - Follow the installation instructions (3.2)
+ - python src/stan_circular_inference/examples/jss_paper_results_replication.py
+"""
+
+# dependencies
+from scipy.stats import vonmises
+from pycircstat2.distributions import wrapcauchy, cardioid
+import numpy as np
+import pandas as pd
+
+# pipeline and distributions classes
+from stan_circular_inference.service.bayesian_inference import BayesianInferenceService, DataType
+from stan_circular_inference.factories.vonmises_factory import VonMisesMK
+from stan_circular_inference.factories.cardioid_factory import Cardioid
+from stan_circular_inference.factories.wrapped_cauchy_factory import WrappedCauchy
+from stan_circular_inference.factories.distributions_factory import Uniform, Normal, Exponential
+from stan_circular_inference.factories.mixture_factory import Mixture
+
+# Simulate 100 data points from a von Mises distribution with true mean pi and concentration 5.
+mu_real = np.pi
+kappa_real = 5
+data = vonmises.rvs(kappa_real, loc=mu_real, size=100)
+
+# Prepare data dictionary for the STAN model.
+model_data = {'N': len(data), 'values': data, 'kappa': kappa_real}
+
+# Define priors: Uniform for mu, wrapped (implicit) for the model.
+mu = Uniform(0, np.pi)
+von_mises_m = VonMisesMK(mu)
+
+# Provide initial values for MCMC chains to help convergence.
+init = [{'mu': float(mu_real)} for _ in range(4)]
+
+service = BayesianInferenceService(von_mises_m)
+
+# Draw 10000 samples from the posterior distribution.
+interest_parameter_values = service.get_pystan_statistics(data=model_data, parameters=['mu'], sample_amount=10000, init=init)
+
+# Generate posterior density plot on a circular scale (0 to 2pi).
+# circular_graphic_density.png
+service.circular_graphic(interest_parameter_values['mu'], min_val=0, max_val=2*np.pi, density=True)
+# Generate posterior rose diagram (histogram) on a circular scale.
+# rose_diagram.png
+service.circular_graphic(interest_parameter_values['mu'], min_val=0, max_val=2*np.pi, density=False)
+
+# ------------------------------------------------------------------
+
+# read the wind_dataset.csv
+df = pd.read_csv('datasets/wind_dataset.csv')
+# Filter out missing or invalid values (-9999) and drop remaining NaNs.
+df = df[(df['wind_dir'] != -9999) | (df['wind_speed'] != -9999)].dropna().copy()
+
+# Convert wind direction from degrees to radians and normalize to [0, 2pi).
+df['wind_dir'] = np.radians(df['wind_dir']) % (2*np.pi)
+
+# Define a custom STAN model for circular regression.
+# The mean direction (mu_final) shifts linearly with the wind speed (velocity).
+model = """
+    data {
+        int<lower=0> N;
+        vector[N] direction;
+        vector[N] velocity;
+    }
+
+    parameters {
+        real<lower=0, upper=2*pi()> mu;
+        real<lower=0> kappa;
+        real<lower=0, upper=1> beta;
+    }
+
+    model {
+        mu ~ uniform(0, 2*pi());
+        kappa ~ gamma(2, 0.5);
+        beta ~ normal(0, 5);
+
+        for(n in 1:N){
+            real mu_final = mu + beta * velocity[n];
+            
+            direction[n] ~ von_mises(mu_final, kappa);
+        }
+    }
+"""
+
+service = BayesianInferenceService(model)
+
+# Prepare the real data for STAN.
+model_data = {'N': len(df['wind_dir'].values), 'direction': df['wind_dir'].values, 'velocity': df['wind_speed'].values}
+
+# Infer the posterior distributions for the 3 parameters.
+values = service.get_pystan_statistics(data=model_data, parameters=['mu', 'kappa', 'beta'], sample_amount=5000)
+
+# Generate multiple graphics (trace/plot) for the posterior samples.
+# parameters_type=[True, False, False] indicates the first parameter (mu) is circular (0-2pi).
+# multi_graph_new_wind_dataset.png
+service.multiple_graphics(values, min_val=0, max_val=2*np.pi, parameters_type=[True, False, False])
+
+# ------------------------------------------------------------------
+
+# Generate synthetic data: 50 points from Cardioid (mu=pi/4, rho=0.2) 
+# and 50 points from Wrapped Cauchy (mu=7pi/4, rho=0.7).
+size = 50
+mu1, rho1 = np.pi / 4, 0.2
+mu2, rho2 = 7/4 * np.pi, 0.7
+samples1 = cardioid.rvs(size=size, mu=mu1, rho=rho1)
+samples2 = wrapcauchy.rvs(size=size, mu=mu2, kappa=rho2)
+
+# Define priors for the mixture components.
+mu1 = Uniform(0, 2*np.pi)
+rho1 = Normal(0.25, 0.25)
+
+mu2 = Uniform(0, 2*np.pi)
+rho2 = Normal(0.5, 0.5)
+
+# Instantiate the two component distributions.
+dist1 = Cardioid(mu1, rho1)
+dist2 = WrappedCauchy(mu2, rho2)
+
+# Combine them into a Mixture model.
+model = Mixture(dist1, dist2)
+
+service = BayesianInferenceService(model)
+
+# Concatenate synthetic samples into a single dataset.
+samples = np.concatenate([samples1, samples2])
+
+data = {
+    'N': len(samples),
+    'values': samples
+}
+
+# Plot a simple circular histogram of the raw mixed data.
+service.circular_graphic(samples, min_val=0, max_val=2*np.pi)
+
+# Build the STAN model and draw posterior samples.
+posterior = service.build_model(data)
+fit = service.get_samples(posterior, size*10)
+values = service.get_values(fit, parameters=['mu1', 'rho1', 'mu2', 'rho2', 'mixing_weight.1', 'mixing_weight.51'])
+
+# Print summary statistics of the posterior fit.
+service.get_statistics(fit)
+
+# Generate multiple graphics for the mixture parameters.
+# Note: parameters_type=[True, False, True, False, False, False] indicates mu1 and mu2 are circular.
+# multiple_graphs.png
+service.multiple_graphics(values, param_names=['mu1', 'rho1', 'mu2', 'rho2', 'mixing_weight.1', 'mixing_weight.51'], min_val=0, max_val=2*np.pi, parameters_type=[True, False, True, False, False, False])
+
+# ------------------------------------------------------------------
+
+# prior values to generate data
+mu1 = np.pi/4
+mu2 = -np.pi/4
+kappa = 9
+size = 100
+
+# generating data
+samples1 = vonmises.rvs(kappa, loc=mu1, size=size)
+samples2 = vonmises.rvs(kappa, loc=mu2, size=size)
+
+# merging the generated data
+samples = np.concatenate([samples1, samples2])
+
+mu1 = Uniform(0, 2*np.pi)
+mu2 = Uniform(0, 2*np.pi)
+kappa = Exponential(0.1)
+
+model = Mixture(VonMisesMK(mu1, kappa), VonMisesMK(mu2, kappa))
+
+service = BayesianInferenceService(model)
+
+# Show the generated data for the mixture model
+service.circular_graphic(samples, min_val=0, max_val=2*np.pi)
+
+data = {'N': len(samples), 'values': samples}
+
+posterior = service.build_model(data=data)
+fit = service.get_samples(posterior=posterior, sample_amount=1000)
+
+# Heuristic to infer which posterior sample belongs to which original component.
+# If the mixing_weight mean is > 0.5, assign label 0, else label 1.
+dist1 = [
+    0 if sum(1 for v in values if v > 0.5) >= len(values) / 2 else 1
+    for values in fit['mixing_weight']
+]
+
+# Ground truth labels for the synthetic data.
+real_dist1 = [0] * size
+real_dist2 = [1] * size
+real_values = real_dist1 + real_dist2
+
+# Find misclassified points (potential label switching).
+incorrect_values = [(real_val, val) for real_val, val in zip(real_values, dist1) if real_val != val]
+
+# Extract the posterior distribution of mu for plotting.
+values = service.get_values(fit, parameters=['mu'])['mu']
+
+# Plot the posterior density of mu.
+# random_mixture_dataset_two_vonmises.png
+service.circular_graphic(values, min_val=0, max_val=2*np.pi)
+
+# Generate two complementary plots to visualize the assignment of points to distributions.
+# match_points_to_distribution_mixture.png & match_points_to_distribution.png
+statistics = service.match_points_to_distributions(samples, real_values, dist1, min_val=0, max_val=2*np.pi, data_type=DataType.RADS)
+
+# ------------------------------------------------------------------
+
+samples_amount = 20000
+mu1_values = [0, 0]
+mu2_values = [np.pi, np.pi/2]
+kappa_values = [7, 3]
+true_mixing = 0.5
+dataset_sizes = [100, 40, 8]
+n_iter = 3
+
+# Define a mixture of Cardioid and VonMises for this simulation.
+model = Mixture(Cardioid(Normal(0, np.pi/4), Normal(0.25, 0.25)), VonMisesMK(Uniform(0, 2 * np.pi), Exponential(0.1)))
+service = BayesianInferenceService(model)
+
+results = {}
+
+total = len(mu1_values) * len(kappa_values) * len(dataset_sizes) * n_iter
+actual_sample = 1
+
+pi_counter = 1
+half_pi_counter = 1
+
+# Nested loops iterating over all combinations of parameters.
+for mu1, mu2 in zip(mu1_values, mu2_values):
+    for kappa in kappa_values:
+        for dataset_size in dataset_sizes:
+            size1 = int(true_mixing * dataset_size)
+            size2 = dataset_size - size1
+            # Pre‑compute true labels for this configuration (same for all iterations).
+            real_dist = np.array([0]*size1 + [1]*size2)
+
+            # Generate n_iter pairs of samples for this specific configuration.
+            samples_list = []
+            for _ in range(n_iter):
+                samples_list.append((
+                    vonmises.rvs(mu=mu1, kappa=kappa, size=size1),
+                    vonmises.rvs(mu=mu2, kappa=kappa, size=size2)
+                ))
+
+            for samples_tuple in samples_list:
+                samples = np.concatenate([samples_tuple[0], samples_tuple[1]])
+                data = {'N': dataset_size, 'values': samples}
+                posterior = service.build_model(data)
+                fit = service.get_samples(posterior, sample_amount=samples_amount)
+
+                # Infer labels based on the average mixing weight.
+                inferred_labels = [
+                    0 if np.mean(values) > 0.5 else 1
+                    for values in fit['mixing_weight']
+                ]
+
+                # Compute accuracy and confusion matrix using the corrected labels.
+                mixture_stats = service.get_mixture_statistics(
+                    samples, real_dist, inferred_labels,
+                    min_val=0, max_val=2*np.pi
+                )
+
+                # Save confusion matrix plot for this iteration.
+                # confusion_matrix.png
+                service.show_mixture_statistics(mixture_stats)
+
+                # Store accuracy results for later analysis.
+                key = f'mu1:{mu1},mu2:{mu2},kappa:{kappa},dataset_size:{dataset_size}'
+                results.setdefault(key, []).append(mixture_stats['accuracy'])
+
+                # If accuracy is less than 100%, there is label switching or misclassification.
+                if mixture_stats['accuracy'] < 1.0:
+                    # Save the plot showing which points were misattributed.
+                    # label_switching.png
+                    service.match_points_to_distributions(samples, real_values, inferred_labels, min_val=0, max_val=2*np.pi, data_type=DataType.RADS)
+
+                print(f'{actual_sample}/{total}')
+                print(f'{key} {mixture_stats["accuracy"]}')
+                actual_sample += 1
+            
+                # Conditional saving of specific mixture plots for demonstrative purposes.
+                if (mu2 == np.pi and pi_counter > 0) or (mu2 == np.pi/2 and half_pi_counter > 0):
+                    if mu2 == np.pi:
+                        pi_counter -= 1
+                    if mu2 == np.pi/2:
+                        half_pi_counter -= 1
+                    # mixture1.png & mixture2.png
+                    service.match_points_to_distributions(samples, real_values, inferred_labels, min_val=0, max_val=2*np.pi, data_type=DataType.RADS)
+
+# ------------------------------------------------------------------
+
+mu = Uniform(np.pi, 2*np.pi)
+kappa = Uniform(0.1, 0.05)
+
+real_mu = 3/2 * np.pi
+real_kappa = 0.1
+size = 20
+
+samples = vonmises.rvs(kappa, loc=mu, size=size)
+
+model_data = {'N': size, 'values': samples}
+
+model = VonMisesMK(mu, kappa)
+
+service = BayesianInferenceService(model)
+
+# stats_table.png
+service.get_pystan_statistics(model_data, parameters=['mu', 'kappa'])

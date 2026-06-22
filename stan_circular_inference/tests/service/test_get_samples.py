@@ -5,14 +5,14 @@ from unittest.mock import Mock, patch, call
 class TestGetSamples:
     """Test suite for the get_samples method"""
     
-    def test_get_samples_without_init(self, service, mock_posterior):
+    def test_get_samples_without_init(self, bayesian_service, mock_posterior):
         """Test get_samples without init parameter (uses defaults)"""
         # Arrange
         fit = Mock()
         mock_posterior.sample.return_value = fit
         
         # Act
-        result = service.get_samples(mock_posterior, sample_amount=1000)
+        result = bayesian_service.get_samples(mock_posterior, sample_amount=1000)
         
         # Assert
         mock_posterior.sample.assert_called_once_with(
@@ -21,7 +21,7 @@ class TestGetSamples:
         )
         assert result == fit
     
-    def test_get_samples_with_init(self, service, mock_posterior):
+    def test_get_samples_with_init(self, bayesian_service, mock_posterior):
         """Test get_samples with init parameter"""
         # Arrange
         fit = Mock()
@@ -33,7 +33,7 @@ class TestGetSamples:
         }
         
         # Act
-        result = service.get_samples(
+        result = bayesian_service.get_samples(
             posterior=mock_posterior,
             sample_amount=2000,
             init=init_dict
@@ -47,14 +47,14 @@ class TestGetSamples:
         )
         assert result == fit
     
-    def test_get_samples_default_sample_amount(self, service, mock_posterior):
+    def test_get_samples_default_sample_amount(self, bayesian_service, mock_posterior):
         """Test get_samples with default sample_amount (50000)"""
         # Arrange
         fit = Mock()
         mock_posterior.sample.return_value = fit
         
         # Act - don't specify sample_amount
-        result = service.get_samples(mock_posterior)
+        result = bayesian_service.get_samples(mock_posterior)
         
         # Assert
         mock_posterior.sample.assert_called_once_with(
@@ -63,7 +63,7 @@ class TestGetSamples:
         )
         assert result == fit
     
-    def test_get_samples_verify_chains_always_4(self, service, mock_posterior):
+    def test_get_samples_verify_chains_always_4(self, bayesian_service, mock_posterior):
         """Test that num_chains is always 4 regardless of other parameters"""
         # Arrange
         fit = Mock()
@@ -77,7 +77,7 @@ class TestGetSamples:
             mock_posterior.sample.reset_mock()
             
             # Act
-            result = service.get_samples(
+            result = bayesian_service.get_samples(
                 posterior=mock_posterior,
                 sample_amount=sample_amount,
                 init={"test": 1.0}
@@ -91,44 +91,30 @@ class TestGetSamples:
             )
             assert result == fit
     
-    def test_get_samples_with_different_posterior_objects(self, service):
+    def test_get_samples_with_different_posterior_objects(self, bayesian_service):
         """Test get_samples works with different posterior objects"""
-        # Test with various mock posterior objects
         test_cases = [
-            (Mock(), 1000, {"mu": 1.0}),
+            (Mock(), 1000, None),          # no init
             (Mock(spec=['sample']), 2000, {"kappa": 2.0})
         ]
-        
         for posterior, sample_amount, init in test_cases:
-            # Setup
             fit = Mock()
             posterior.sample.return_value = fit
+            result = bayesian_service.get_samples(posterior, sample_amount, init=init)
             
-            # Act
-            result = service.get_samples(posterior, sample_amount, init)
-            
-            # Assert
-            expected_kwargs = {
-                'num_chains': 4,
-                'num_samples': sample_amount,
-                'init': init
-            }
+            expected_kwargs = {'num_chains': 4, 'num_samples': sample_amount}
+            if init is not None:
+                expected_kwargs['init'] = init
             posterior.sample.assert_called_once_with(**expected_kwargs)
             assert result == fit
     
-    def test_get_samples_error_handling(self, service, mock_posterior):
-        """Test that exceptions from posterior.sample are propagated"""
-        # Arrange
+    def test_get_samples_error_handling(self, bayesian_service, mock_posterior):
         mock_posterior.sample.side_effect = RuntimeError("Sampling failed")
-        
-        # Act & Assert
-        with pytest.raises(RuntimeError) as exc_info:
-            service.get_samples(mock_posterior, sample_amount=1000)
-        
-        assert "Sampling failed" in str(exc_info.value)
-        mock_posterior.sample.assert_called_once()
+        bayesian_service.posterior = mock_posterior
+        with pytest.raises(TimeoutError, match="The model timeout during sampling"):
+            bayesian_service.get_samples(mock_posterior, sample_amount=1000)
     
-    def test_get_samples_large_sample_amount(self, service, mock_posterior):
+    def test_get_samples_large_sample_amount(self, bayesian_service, mock_posterior):
         """Test with very large sample amount"""
         # Arrange
         fit = Mock()
@@ -137,7 +123,7 @@ class TestGetSamples:
         large_sample_amount = 1000000
         
         # Act
-        result = service.get_samples(
+        result = bayesian_service.get_samples(
             posterior=mock_posterior,
             sample_amount=large_sample_amount
         )
@@ -149,7 +135,7 @@ class TestGetSamples:
         )
         assert result == fit
     
-    def test_get_samples_with_complex_init_structure(self, service, mock_posterior):
+    def test_get_samples_with_complex_init_structure(self, bayesian_service, mock_posterior):
         """Test with complex initialization structure"""
         # Arrange
         fit = Mock()
@@ -163,7 +149,7 @@ class TestGetSamples:
         }
         
         # Act
-        result = service.get_samples(
+        result = bayesian_service.get_samples(
             posterior=mock_posterior,
             sample_amount=5000,
             init=complex_init
@@ -177,7 +163,7 @@ class TestGetSamples:
         )
         assert result == fit
     
-    def test_get_samples_multiple_calls(self, service, mock_posterior):
+    def test_get_samples_multiple_calls(self, bayesian_service, mock_posterior):
         """Test multiple calls to get_samples"""
         # Arrange
         fit1 = Mock()
@@ -186,9 +172,9 @@ class TestGetSamples:
         mock_posterior.sample.side_effect = [fit1, fit2, fit3]
         
         # Act - multiple calls
-        result1 = service.get_samples(mock_posterior, 1000)
-        result2 = service.get_samples(mock_posterior, 2000, {"init": 1.0})
-        result3 = service.get_samples(mock_posterior)  # Defaults
+        result1 = bayesian_service.get_samples(mock_posterior, 1000)
+        result2 = bayesian_service.get_samples(mock_posterior, 2000, init={"init": 1.0})
+        result3 = bayesian_service.get_samples(mock_posterior)  # Defaults
         
         # Assert
         assert mock_posterior.sample.call_count == 3
@@ -206,7 +192,7 @@ class TestGetSamples:
 class TestGetSamplesIntegration:
     """Integration tests for get_samples"""
     
-    def test_get_samples_in_pipeline(self, service, mock_posterior):
+    def test_get_samples_in_pipeline(self, bayesian_service, mock_posterior):
         """Test get_samples as part of a larger pipeline"""
         # Create a realistic mock posterior
         mock_posterior = Mock()
@@ -228,7 +214,7 @@ class TestGetSamplesIntegration:
         init_values = {"mu": 3.14, "kappa": 1.0}
         
         # Call get_samples
-        fit = service.get_samples(
+        fit = bayesian_service.get_samples(
             posterior=mock_posterior,
             sample_amount=sample_amount,
             init=init_values
@@ -247,49 +233,38 @@ class TestGetSamplesIntegration:
         assert hasattr(fit, 'parameters')
         assert len(fit.stan_outputs) == 4
     
-    def test_get_samples_with_realistic_posterior_from_build_model(self, service, mock_posterior):
+    def test_get_samples_with_realistic_posterior_from_build_model(self, bayesian_service, mock_posterior):
         """Test that get_samples works with posterior from build_model"""
         # This test would mock both build_model and get_samples
         # Since build_model returns a posterior, get_samples should work with it
         
         with patch('stan_circular_inference.service.bayesian_inference.stan.build') as mock_build:
-            # Create a mock posterior
             mock_posterior = Mock()
             mock_build.return_value = mock_posterior
             
-            # Build model (would normally come from build_model)
             test_data = {"N": 10, "values": list(range(10))}
+            posterior = bayesian_service.build_model(test_data)   # now uses the mock
             
-            # If build_model was called
-            # posterior = service.build_model(test_data)
-            # Instead, we'll use the mock directly
-            
-            # Now sample from it
             fit = Mock()
-            mock_posterior.sample.return_value = fit
+            posterior.sample.return_value = fit
             
-            fit = service.get_samples(mock_posterior, sample_amount=5000)
-            
-            # Verify
-            mock_posterior.sample.assert_called_once_with(
-                num_chains=4,
-                num_samples=5000
-            )
-            assert fit == fit
+            result = bayesian_service.get_samples(posterior, sample_amount=5000)
+            posterior.sample.assert_called_once_with(num_chains=4, num_samples=5000)
+            assert result == fit
 
 
 # Edge case tests
 class TestGetSamplesEdgeCases:
     """Edge case tests for get_samples"""
     
-    def test_get_samples_with_zero_samples(self, service, mock_posterior):
+    def test_get_samples_with_zero_samples(self, bayesian_service, mock_posterior):
         """Test with sample_amount=0 (edge case)"""
         # Arrange
         fit = Mock()
         mock_posterior.sample.return_value = fit
         
         # Act
-        result = service.get_samples(mock_posterior, sample_amount=0)
+        result = bayesian_service.get_samples(mock_posterior, sample_amount=0)
         
         # Assert
         mock_posterior.sample.assert_called_once_with(
@@ -298,14 +273,14 @@ class TestGetSamplesEdgeCases:
         )
         assert result == fit
     
-    def test_get_samples_with_negative_samples(self, service, mock_posterior):
+    def test_get_samples_with_negative_samples(self, bayesian_service, mock_posterior):
         """Test with negative sample_amount (should still work - stan will handle error)"""
         # Arrange
         fit = Mock()
         mock_posterior.sample.return_value = fit
         
         # Act
-        result = service.get_samples(mock_posterior, sample_amount=-100)
+        result = bayesian_service.get_samples(mock_posterior, sample_amount=-100)
         
         # Assert
         mock_posterior.sample.assert_called_once_with(

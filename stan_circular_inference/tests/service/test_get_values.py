@@ -14,13 +14,13 @@ from stan_circular_inference.service.bayesian_inference import BayesianInference
 class TestGetValues:
     """Test suite para o método get_values"""
     
-    def test_get_values_single_parameter(self, service, mock_fit_with_chains):
+    def test_get_values_single_parameter(self, bayesian_service, mock_fit_with_chains):
         """Testa extração de um único parâmetro"""
         # Arrange
         parameters = ["mu"]
         
         # Act
-        result = service.get_values(mock_fit_with_chains, parameters)
+        result = bayesian_service.get_values(mock_fit_with_chains, parameters)
         
         # Assert
         assert isinstance(result, dict)
@@ -32,13 +32,13 @@ class TestGetValues:
         for expected, actual in zip(expected_mu_values, result["mu"]):
             assert pytest.approx(actual, 0.001) == expected
     
-    def test_get_values_multiple_parameters(self, service, mock_fit_with_chains):
+    def test_get_values_multiple_parameters(self, bayesian_service, mock_fit_with_chains):
         """Testa extração de múltiplos parâmetros"""
         # Arrange
         parameters = ["mu", "kappa"]
         
         # Act
-        result = service.get_values(mock_fit_with_chains, parameters)
+        result = bayesian_service.get_values(mock_fit_with_chains, parameters)
         
         # Assert
         assert set(result.keys()) == {"mu", "kappa"}
@@ -53,29 +53,29 @@ class TestGetValues:
         assert pytest.approx(result["mu"][-1], 0.001) == 3.18
         assert pytest.approx(result["kappa"][-1], 0.001) == 1.4
     
-    def test_get_values_ignores_non_sample_topics(self, service, mock_fit_with_chains):
+    def test_get_values_ignores_non_sample_topics(self, bayesian_service, mock_fit_with_chains):
         """Testa que apenas lines com topic='sample' são processadas"""
         # Na chain 1 temos 4 lines, mas 1 tem topic='info', então apenas 3 samples
         # Na chain 2 temos 2 samples
         # Total esperado: 3 + 2 = 5
         
         parameters = ["mu"]
-        result = service.get_values(mock_fit_with_chains, parameters)
+        result = bayesian_service.get_values(mock_fit_with_chains, parameters)
         
         assert len(result["mu"]) == 5  # Ignora o 'info'
     
-    def test_get_values_single_chain(self, service, mock_fit_single_chain):
+    def test_get_values_single_chain(self, bayesian_service, mock_fit_single_chain):
         """Testa com apenas uma chain"""
         # Arrange
         parameters = ["mu"]
         
         # Act
-        result = service.get_values(mock_fit_single_chain, parameters)
+        result = bayesian_service.get_values(mock_fit_single_chain, parameters)
         
         # Assert
         assert result["mu"] == [1.0, 2.0, 3.0]
     
-    def test_get_values_parameter_not_in_all_samples(self, service):
+    def test_get_values_parameter_not_in_all_samples(self, bayesian_service):
         """Testa quando um parâmetro não está presente em todos os samples"""
         # Dados da chain
         chain_data = [
@@ -96,9 +96,9 @@ class TestGetValues:
         
         # Act & Assert - deve lançar KeyError quando kappa não está presente
         with pytest.raises(KeyError):
-            service.get_values(fit, parameters)
+            bayesian_service.get_values(fit, parameters)
     
-    def test_get_values_with_nested_values(self, service):
+    def test_get_values_with_nested_values(self, bayesian_service):
         """Testa com values que são dicionários (isinstance(values, dict))"""
         # Dados da chain
         chain_data = [
@@ -117,32 +117,32 @@ class TestGetValues:
         parameters = ["mu"]
         
         # Act
-        result = service.get_values(fit, parameters)
+        result = bayesian_service.get_values(fit, parameters)
         
         # Assert
         assert result["mu"] == [{"value": 1.0, "sd": 0.1}, {"value": 2.0, "sd": 0.2}]
     
-    def test_get_values_empty_parameter_list(self, service, mock_fit_with_chains):
+    def test_get_values_empty_parameter_list(self, bayesian_service, mock_fit_with_chains):
         """Testa com lista vazia de parâmetros"""
         # Arrange
         parameters = []
         
         # Act
-        result = service.get_values(mock_fit_with_chains, parameters)
+        result = bayesian_service.get_values(mock_fit_with_chains, parameters)
         
         # Assert
         assert result == {}
     
-    def test_get_values_single_parameter_not_present(self, service, mock_fit_with_chains):
+    def test_get_values_single_parameter_not_present(self, bayesian_service, mock_fit_with_chains):
         """Testa quando o parâmetro solicitado não existe nas chains"""
         # Arrange
         parameters = ["non_existent_param"]
         
         # Act & Assert - deve lançar KeyError
         with pytest.raises(KeyError):
-            service.get_values(mock_fit_with_chains, parameters)
+            bayesian_service.get_values(mock_fit_with_chains, parameters)
     
-    def test_get_values_decoding_error(self, service):
+    def test_get_values_decoding_error(self, bayesian_service):
         """Testa com chains que não podem ser decodificadas"""
         # Cria chains com bytes inválidos
         chains = [
@@ -156,9 +156,9 @@ class TestGetValues:
         
         # Act & Assert - deve lançar UnicodeDecodeError
         with pytest.raises(UnicodeDecodeError):
-            service.get_values(fit, parameters)
+            bayesian_service.get_values(fit, parameters)
     
-    def test_get_values_json_parse_error(self, service):
+    def test_get_values_json_parse_error(self, bayesian_service):
         """Testa com JSON inválido nas chains"""
         # Cria chains com JSON inválido
         chains = [b'{"invalid": json}']  # JSON inválido
@@ -170,9 +170,9 @@ class TestGetValues:
         
         # Act & Assert - deve lançar json.JSONDecodeError
         with pytest.raises(json.JSONDecodeError):
-            service.get_values(fit, parameters)
+            bayesian_service.get_values(fit, parameters)
     
-    def test_get_values_values_not_dict(self, service):
+    def test_get_values_values_not_dict(self, bayesian_service):
         """Testa quando values não é um dicionário"""
         # Dados da chain
         chain_data = [
@@ -190,12 +190,12 @@ class TestGetValues:
         parameters = ["mu"]
         
         # Act
-        result = service.get_values(fit, parameters)
+        result = bayesian_service.get_values(fit, parameters)
         
         # Assert - deve pular este sample (isinstance(values, dict) é False)
         assert result["mu"] == []
     
-    def test_get_values_whitespace_handling(self, service):
+    def test_get_values_whitespace_handling(self, bayesian_service):
         """Testa que whitespace é tratado corretamente (strip())"""
         # Cria chain com whitespace - cria como string primeiro
         json_str = json.dumps({"topic": "sample", "values": {"mu": 1.0}})
@@ -211,12 +211,12 @@ class TestGetValues:
         parameters = ["mu"]
         
         # Act
-        result = service.get_values(fit, parameters)
+        result = bayesian_service.get_values(fit, parameters)
         
         # Assert - strip() deve remover whitespace
         assert result["mu"] == [1.0]
     
-    def test_get_values_order_preserved(self, service):
+    def test_get_values_order_preserved(self, bayesian_service):
         """Testa que a ordem dos valores é preservada"""
         # Dados das chains
         chain1_data = [
@@ -242,7 +242,7 @@ class TestGetValues:
         parameters = ["mu"]
         
         # Act
-        result = service.get_values(fit, parameters)
+        result = bayesian_service.get_values(fit, parameters)
         
         # Assert - ordem deve ser preservada (chain 1 primeiro, depois chain 2)
         assert result["mu"] == [1.0, 2.0, 3.0, 4.0, 5.0]
@@ -252,12 +252,10 @@ class TestGetValuesEdgeCases:
     """Testes de casos extremos para get_values"""
     
     @pytest.fixture
-    def service(self):
-        mock_model = Mock()
-        mock_model.gen_stan_model.return_value = "test_code"
-        return BayesianInferenceService(mock_model)
+    def bayesian_service(self):
+        return BayesianInferenceService("test_code")
     
-    def test_get_values_large_chains(self, service):
+    def test_get_values_large_chains(self, bayesian_service):
         """Testa com chains muito grandes"""
         # Cria 1000 samples por chain
         samples_per_chain = 1000
@@ -281,7 +279,7 @@ class TestGetValuesEdgeCases:
         parameters = ["mu"]
         
         # Act
-        result = service.get_values(fit, parameters)
+        result = bayesian_service.get_values(fit, parameters)
         
         # Assert
         assert len(result["mu"]) == 4 * samples_per_chain  # 4000 samples total
@@ -291,7 +289,7 @@ class TestGetValuesEdgeCases:
         assert result["mu"][1000] == 1000.0  # chain 1, sample 0
         assert result["mu"][-1] == 3999.0  # chain 3, último sample
     
-    def test_get_values_null_values(self, service):
+    def test_get_values_null_values(self, bayesian_service):
         """Testa com valores null/none no JSON"""
         # Dados da chain
         chain_data = [
@@ -310,12 +308,12 @@ class TestGetValuesEdgeCases:
         parameters = ["mu"]
         
         # Act
-        result = service.get_values(fit, parameters)
+        result = bayesian_service.get_values(fit, parameters)
         
         # Assert
         assert result["mu"] == [None, 1.0]
     
-    def test_get_values_special_characters(self, service):
+    def test_get_values_special_characters(self, bayesian_service):
         """Testa com caracteres especiais nos parâmetros"""
         # Dados da chain
         chain_data = [
@@ -334,7 +332,7 @@ class TestGetValuesEdgeCases:
         parameters = ["mu.beta", "sigma_alpha"]
         
         # Act
-        result = service.get_values(fit, parameters)
+        result = bayesian_service.get_values(fit, parameters)
         
         # Assert
         assert "mu.beta" in result
@@ -342,7 +340,7 @@ class TestGetValuesEdgeCases:
         assert result["mu.beta"] == [1.0, 3.0]
         assert result["sigma_alpha"] == [2.0, 4.0]
     
-    def test_get_values_mixed_data_types(self, service):
+    def test_get_values_mixed_data_types(self, bayesian_service):
         """Testa com diferentes tipos de dados nos valores"""
         # Dados da chain
         chain_data = [
@@ -366,7 +364,7 @@ class TestGetValuesEdgeCases:
         parameters = ["mu", "count", "name", "flag", "array"]
         
         # Act
-        result = service.get_values(fit, parameters)
+        result = bayesian_service.get_values(fit, parameters)
         
         # Assert
         assert result["mu"] == [1.0]
