@@ -1,0 +1,5 @@
+[run]
+source = stan_circular_inference
+omit =
+    src/stan_circular_inference/examples/*
+    tests/*

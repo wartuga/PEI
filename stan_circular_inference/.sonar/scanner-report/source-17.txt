@@ -1,0 +1,337 @@
+import numpy as np
+from pycircstat2.distributions import vonmises, cardioid, wrapcauchy
+from stan_circular_inference.factories.vonmises_factory import VonMisesMK
+from stan_circular_inference.factories.cardioid_factory import Cardioid
+from stan_circular_inference.factories.wrapped_cauchy_factory import WrappedCauchy
+from stan_circular_inference.factories.distributions_factory import Uniform, Exponential, Normal
+from stan_circular_inference.factories.mixture_factory import Mixture
+from stan_circular_inference.service import BayesianInferenceService
+
+samples_amount = 20000
+mu1_values = [0, 0, 0, 0]
+mu2_values = [np.pi, np.pi/2, np.pi/4, 0]
+kappa_values = [7, 3]
+true_mixing = 0.5
+dataset_sizes = [100, 40, 8]    #[200]
+n_iter = 3
+
+model = Mixture(Cardioid(Normal(0, np.pi/4), Normal(0.25, 0.25)), VonMisesMK(Uniform(0, 2 * np.pi), Exponential(0.1)))
+service = BayesianInferenceService(model)
+
+print(model.get_parameters_prior())
+
+results = {}
+
+total = len(mu1_values) * len(kappa_values) * len(dataset_sizes) * n_iter
+actual_sample = 1
+
+for mu1, mu2 in zip(mu1_values, mu2_values):
+    for kappa in kappa_values:
+        for dataset_size in dataset_sizes:
+            size1 = int(true_mixing * dataset_size)
+            size2 = dataset_size - size1
+            # Pre‑compute true labels for this configuration (same for all iterations)
+            real_dist = np.array([0]*size1 + [1]*size2)
+
+            # Generate n_iter pairs of samples (each pair: (samples_comp0, samples_comp1))
+            samples_list = []
+            for _ in range(n_iter):
+                samples_list.append((
+                    vonmises.rvs(mu=mu1, kappa=kappa, size=size1),
+                    vonmises.rvs(mu=mu2, kappa=kappa, size=size2)
+                ))
+
+            for samples_tuple in samples_list:
+                samples = np.concatenate([samples_tuple[0], samples_tuple[1]])
+                data = {'N': dataset_size, 'values': samples}
+                posterior = service.build_model(data)
+                fit = service.get_samples(posterior, sample_amount=samples_amount)
+
+                inferred_labels = [
+                    0 if np.mean(values) > 0.5 else 1
+                    for values in fit['mixing_weight']
+                ]
+
+                # Compute statistics using the corrected labels
+                mixture_stats = service.get_mixture_statistics(
+                    samples, real_dist, inferred_labels,
+                    min_val=0, max_val=2*np.pi
+                )
+
+                key = f'mu1:{mu1},mu2:{mu2},kappa:{kappa},dataset_size:{dataset_size}'
+                results.setdefault(key, []).append(mixture_stats['accuracy'])
+
+                print(f'{actual_sample}/{total}')
+                print(f'{key} {mixture_stats["accuracy"]}')
+                actual_sample += 1
+
+for key in results:
+    print(key, np.mean(results[key]), results[key])
+
+'''
+Enganei-me e troquei o 0 com o 1, então 0% na verdade é 100%
+mu1:0,mu2:3.141592653589793,kappa:9,dataset_size:1000 0.0
+mu1:0,mu2:3.141592653589793,kappa:9,dataset_size:100 0.0
+mu1:0,mu2:3.141592653589793,kappa:9,dataset_size:20 0.0
+mu1:0,mu2:3.141592653589793,kappa:5,dataset_size:1000 0.2
+mu1:0,mu2:3.141592653589793,kappa:5,dataset_size:100 1.0
+mu1:0,mu2:3.141592653589793,kappa:5,dataset_size:20 0.0
+mu1:0,mu2:3.141592653589793,kappa:2,dataset_size:1000 49.9
+mu1:0,mu2:3.141592653589793,kappa:2,dataset_size:100 5.0
+mu1:0,mu2:3.141592653589793,kappa:2,dataset_size:20 75.0
+mu1:0,mu2:1.5707963267948966,kappa:9,dataset_size:1000 98.8
+mu1:0,mu2:1.5707963267948966,kappa:9,dataset_size:100 48.0
+mu1:0,mu2:1.5707963267948966,kappa:9,dataset_size:20 10.0
+mu1:0,mu2:1.5707963267948966,kappa:5,dataset_size:1000 4.5
+mu1:0,mu2:1.5707963267948966,kappa:5,dataset_size:100 51.0
+mu1:0,mu2:1.5707963267948966,kappa:5,dataset_size:20 20.0
+mu1:0,mu2:1.5707963267948966,kappa:2,dataset_size:1000 17.0
+mu1:0,mu2:1.5707963267948966,kappa:2,dataset_size:100 16.0
+mu1:0,mu2:1.5707963267948966,kappa:2,dataset_size:20 10.0
+mu1:0,mu2:0.7853981633974483,kappa:9,dataset_size:1000 48.8
+mu1:0,mu2:0.7853981633974483,kappa:9,dataset_size:100 87.0
+mu1:0,mu2:0.7853981633974483,kappa:9,dataset_size:20 40.0
+mu1:0,mu2:0.7853981633974483,kappa:5,dataset_size:1000 19.400000000000002
+mu1:0,mu2:0.7853981633974483,kappa:5,dataset_size:100 63.0
+mu1:0,mu2:0.7853981633974483,kappa:5,dataset_size:20 80.0
+mu1:0,mu2:0.7853981633974483,kappa:2,dataset_size:1000 67.9
+mu1:0,mu2:0.7853981633974483,kappa:2,dataset_size:100 23.0
+mu1:0,mu2:0.7853981633974483,kappa:2,dataset_size:20 50.0
+mu1:0,mu2:0,kappa:9,dataset_size:1000 51.2
+mu1:0,mu2:0,kappa:9,dataset_size:100 42.0
+mu1:0,mu2:0,kappa:9,dataset_size:20 30.0
+mu1:0,mu2:0,kappa:5,dataset_size:1000 49.6
+mu1:0,mu2:0,kappa:5,dataset_size:100 48.0
+mu1:0,mu2:0,kappa:5,dataset_size:20 35.0
+mu1:0,mu2:0,kappa:2,dataset_size:1000 48.699999999999996
+mu1:0,mu2:0,kappa:2,dataset_size:100 52.0
+mu1:0,mu2:0,kappa:2,dataset_size:20 55.00000000000001
+
+mu1:0,mu2:3.141592653589793,kappa:9,dataset_size:1000 100.0
+mu1:0,mu2:3.141592653589793,kappa:9,dataset_size:100 0.0 <- e.g.
+mu1:0,mu2:3.141592653589793,kappa:9,dataset_size:20 35.0
+mu1:0,mu2:3.141592653589793,kappa:5,dataset_size:1000 99.6
+mu1:0,mu2:3.141592653589793,kappa:5,dataset_size:100 100.0
+mu1:0,mu2:3.141592653589793,kappa:5,dataset_size:20 100.0
+mu1:0,mu2:3.141592653589793,kappa:2,dataset_size:1000 48.0
+mu1:0,mu2:3.141592653589793,kappa:2,dataset_size:100 45.0
+mu1:0,mu2:3.141592653589793,kappa:2,dataset_size:20 85.0 <- e.g.
+mu1:0,mu2:1.5707963267948966,kappa:9,dataset_size:1000 49.5
+mu1:0,mu2:1.5707963267948966,kappa:9,dataset_size:100 53.0
+mu1:0,mu2:1.5707963267948966,kappa:9,dataset_size:20 95.0
+mu1:0,mu2:1.5707963267948966,kappa:5,dataset_size:1000 95.3
+mu1:0,mu2:1.5707963267948966,kappa:5,dataset_size:100 97.0
+mu1:0,mu2:1.5707963267948966,kappa:5,dataset_size:20 90.0
+mu1:0,mu2:1.5707963267948966,kappa:2,dataset_size:1000 54.50000000000001
+mu1:0,mu2:1.5707963267948966,kappa:2,dataset_size:100 80.0
+mu1:0,mu2:1.5707963267948966,kappa:2,dataset_size:20 30.0
+mu1:0,mu2:0.7853981633974483,kappa:9,dataset_size:1000 86.3
+mu1:0,mu2:0.7853981633974483,kappa:9,dataset_size:100 90.0
+mu1:0,mu2:0.7853981633974483,kappa:9,dataset_size:20 75.0
+mu1:0,mu2:0.7853981633974483,kappa:5,dataset_size:1000 80.7
+mu1:0,mu2:0.7853981633974483,kappa:5,dataset_size:100 18.0
+mu1:0,mu2:0.7853981633974483,kappa:5,dataset_size:20 65.0
+mu1:0,mu2:0.7853981633974483,kappa:2,dataset_size:1000 67.2
+mu1:0,mu2:0.7853981633974483,kappa:2,dataset_size:100 70.0
+mu1:0,mu2:0.7853981633974483,kappa:2,dataset_size:20 55.00000000000001
+mu1:0,mu2:0,kappa:9,dataset_size:1000 50.0
+mu1:0,mu2:0,kappa:9,dataset_size:100 51.0
+mu1:0,mu2:0,kappa:9,dataset_size:20 40.0
+mu1:0,mu2:0,kappa:5,dataset_size:1000 52.400000000000006
+mu1:0,mu2:0,kappa:5,dataset_size:100 45.0
+mu1:0,mu2:0,kappa:5,dataset_size:20 40.0
+mu1:0,mu2:0,kappa:2,dataset_size:1000 51.1
+mu1:0,mu2:0,kappa:2,dataset_size:100 49.0
+mu1:0,mu2:0,kappa:2,dataset_size:20 60.0
+
+testar mais uma vez mas com o upper no kappa
+mu1:0,mu2:3.141592653589793,kappa:7,dataset_size:1000 64.92999999999999
+mu1:0,mu2:3.141592653589793,kappa:7,dataset_size:100 29.0
+mu1:0,mu2:3.141592653589793,kappa:7,dataset_size:20 42.0
+mu1:0,mu2:3.141592653589793,kappa:5,dataset_size:1000 79.86999999999999
+mu1:0,mu2:3.141592653589793,kappa:5,dataset_size:100 46.6
+mu1:0,mu2:3.141592653589793,kappa:5,dataset_size:20 70.5
+mu1:0,mu2:3.141592653589793,kappa:2,dataset_size:1000 41.35
+mu1:0,mu2:3.141592653589793,kappa:2,dataset_size:100 63.3
+mu1:0,mu2:3.141592653589793,kappa:2,dataset_size:20 61.0
+mu1:0,mu2:1.5707963267948966,kappa:7,dataset_size:1000 54.32000000000001
+mu1:0,mu2:1.5707963267948966,kappa:7,dataset_size:100 30.3
+mu1:0,mu2:1.5707963267948966,kappa:7,dataset_size:20 19.5
+mu1:0,mu2:1.5707963267948966,kappa:5,dataset_size:1000 35.68
+mu1:0,mu2:1.5707963267948966,kappa:5,dataset_size:100 38.5
+mu1:0,mu2:1.5707963267948966,kappa:5,dataset_size:20 31.0
+mu1:0,mu2:1.5707963267948966,kappa:2,dataset_size:1000 40.839999999999996
+mu1:0,mu2:1.5707963267948966,kappa:2,dataset_size:100 61.4
+mu1:0,mu2:1.5707963267948966,kappa:2,dataset_size:20 44.0
+mu1:0,mu2:0.7853981633974483,kappa:7,dataset_size:1000 67.30999999999999
+mu1:0,mu2:0.7853981633974483,kappa:7,dataset_size:100 46.9
+mu1:0,mu2:0.7853981633974483,kappa:7,dataset_size:20 52.0
+mu1:0,mu2:0.7853981633974483,kappa:5,dataset_size:1000 74.21000000000001
+mu1:0,mu2:0.7853981633974483,kappa:5,dataset_size:100 33.7
+mu1:0,mu2:0.7853981633974483,kappa:5,dataset_size:20 53.0
+mu1:0,mu2:0.7853981633974483,kappa:2,dataset_size:1000 35.63
+mu1:0,mu2:0.7853981633974483,kappa:2,dataset_size:100 52.5
+mu1:0,mu2:0.7853981633974483,kappa:2,dataset_size:20 39.0
+mu1:0,mu2:0,kappa:7,dataset_size:1000 49.8
+mu1:0,mu2:0,kappa:7,dataset_size:100 50.7
+mu1:0,mu2:0,kappa:7,dataset_size:20 43.0
+mu1:0,mu2:0,kappa:5,dataset_size:1000 49.779999999999994
+mu1:0,mu2:0,kappa:5,dataset_size:100 51.1
+mu1:0,mu2:0,kappa:5,dataset_size:20 55.0
+mu1:0,mu2:0,kappa:2,dataset_size:1000 49.68
+mu1:0,mu2:0,kappa:2,dataset_size:100 48.6
+mu1:0,mu2:0,kappa:2,dataset_size:20 47.0
+
+mu1:0,mu2:3.141592653589793,kappa:7,dataset_size:100 0.0 [0.0, 0.0, 0.0, 0.0, 0.0]
+mu1:0,mu2:3.141592653589793,kappa:7,dataset_size:50 0.0 [0.0, 0.0, 0.0, 0.0, 0.0]
+mu1:0,mu2:3.141592653589793,kappa:7,dataset_size:25 0.0 [0.0, 0.0, 0.0, 0.0, 0.0]
+mu1:0,mu2:3.141592653589793,kappa:3,dataset_size:100 62.8 [66.0, 98.0, 2.0, 51.0, 97.0]
+mu1:0,mu2:3.141592653589793,kappa:3,dataset_size:50 24.8 [100.0, 6.0, 2.0, 0.0, 16.0]
+mu1:0,mu2:3.141592653589793,kappa:3,dataset_size:25 27.2 [72.0, 60.0, 0.0, 4.0, 0.0]
+mu1:0,mu2:1.5707963267948966,kappa:7,dataset_size:100 13.2 [1.0, 3.0, 3.0, 3.0, 56.00000000000001]
+mu1:0,mu2:1.5707963267948966,kappa:7,dataset_size:50 20.4 [2.0, 98.0, 0.0, 2.0, 0.0]
+mu1:0,mu2:1.5707963267948966,kappa:7,dataset_size:25 35.2 [52.0, 4.0, 0.0, 92.0, 28.000000000000004]
+mu1:0,mu2:1.5707963267948966,kappa:3,dataset_size:100 51.0 [17.0, 90.0, 45.0, 89.0, 14.000000000000002]
+mu1:0,mu2:1.5707963267948966,kappa:3,dataset_size:50 22.0 [10.0, 68.0, 8.0, 12.0, 12.0]
+mu1:0,mu2:1.5707963267948966,kappa:3,dataset_size:25 41.6 [0.0, 92.0, 8.0, 12.0, 96.0]
+mu1:0,mu2:0.7853981633974483,kappa:7,dataset_size:100 22.6 [18.0, 14.000000000000002, 17.0, 17.0, 47.0]
+mu1:0,mu2:0.7853981633974483,kappa:7,dataset_size:50 69.6 [50.0, 78.0, 48.0, 86.0, 86.0]
+mu1:0,mu2:0.7853981633974483,kappa:7,dataset_size:25 51.2 [88.0, 100.0, 48.0, 12.0, 8.0]
+mu1:0,mu2:0.7853981633974483,kappa:3,dataset_size:100 42.0 [28.000000000000004, 52.0, 41.0, 63.0, 26.0]
+mu1:0,mu2:0.7853981633974483,kappa:3,dataset_size:50 45.2 [74.0, 70.0, 18.0, 30.0, 34.0]
+mu1:0,mu2:0.7853981633974483,kappa:3,dataset_size:25 48.8 [12.0, 76.0, 76.0, 44.0, 36.0]
+mu1:0,mu2:0,kappa:7,dataset_size:100 51.4 [44.0, 59.0, 47.0, 52.0, 55.00000000000001]
+mu1:0,mu2:0,kappa:7,dataset_size:50 48.8 [52.0, 44.0, 57.99999999999999, 42.0, 48.0]
+mu1:0,mu2:0,kappa:7,dataset_size:25 59.2 [52.0, 64.0, 64.0, 64.0, 52.0]
+mu1:0,mu2:0,kappa:3,dataset_size:100 51.4 [60.0, 55.00000000000001, 44.0, 50.0, 48.0]
+mu1:0,mu2:0,kappa:3,dataset_size:50 46.4 [42.0, 57.99999999999999, 50.0, 44.0, 38.0]
+mu1:0,mu2:0,kappa:3,dataset_size:25 52.0 [52.0, 40.0, 60.0, 48.0, 60.0]
+
+# Corrigi aqui
+mu1:0,mu2:3.141592653589793,kappa:7,dataset_size:100 100.0 [100.0, 100.0, 100.0]
+mu1:0,mu2:3.141592653589793,kappa:7,dataset_size:40 100.0 [100.0, 100.0, 100.0]
+mu1:0,mu2:3.141592653589793,kappa:7,dataset_size:8 75.0 [75.0, 100.0, 50.0]
+mu1:0,mu2:3.141592653589793,kappa:3,dataset_size:100 77.0 [98.0, 95.0, 38.0]
+mu1:0,mu2:3.141592653589793,kappa:3,dataset_size:40 92.5 [95.0, 100.0, 82.5]
+mu1:0,mu2:3.141592653589793,kappa:3,dataset_size:8 91.66666666666667 [87.5, 100.0, 87.5]
+mu1:0,mu2:1.5707963267948966,kappa:7,dataset_size:100 97.0 [97.0, 98.0, 96.0]
+mu1:0,mu2:1.5707963267948966,kappa:7,dataset_size:40 78.33333333333333 [37.5, 97.5, 100.0]
+mu1:0,mu2:1.5707963267948966,kappa:7,dataset_size:8 70.83333333333333 [12.5, 100.0, 100.0]
+mu1:0,mu2:1.5707963267948966,kappa:3,dataset_size:100 53.0 [52.0, 56.00000000000001, 51.0]
+mu1:0,mu2:1.5707963267948966,kappa:3,dataset_size:40 52.5 [60.0, 10.0, 87.5]
+mu1:0,mu2:1.5707963267948966,kappa:3,dataset_size:8 58.333333333333336 [75.0, 12.5, 87.5]
+mu1:0,mu2:0.7853981633974483,kappa:7,dataset_size:100 84.66666666666667 [89.0, 82.0, 83.0]
+mu1:0,mu2:0.7853981633974483,kappa:7,dataset_size:40 74.16666666666667 [45.0, 92.5, 85.0]
+mu1:0,mu2:0.7853981633974483,kappa:7,dataset_size:8 79.16666666666667 [50.0, 100.0, 87.5]
+mu1:0,mu2:0.7853981633974483,kappa:3,dataset_size:100 51.666666666666664 [78.0, 37.0, 40.0]
+mu1:0,mu2:0.7853981633974483,kappa:3,dataset_size:40 55.0 [72.5, 52.5, 40.0]
+mu1:0,mu2:0.7853981633974483,kappa:3,dataset_size:8 45.833333333333336 [12.5, 62.5, 62.5]
+mu1:0,mu2:0,kappa:7,dataset_size:100 50.666666666666664 [51.0, 52.0, 49.0]
+mu1:0,mu2:0,kappa:7,dataset_size:40 50.833333333333336 [57.49999999999999, 47.5, 47.5]
+mu1:0,mu2:0,kappa:7,dataset_size:8 45.833333333333336 [25.0, 62.5, 50.0]
+mu1:0,mu2:0,kappa:3,dataset_size:100 47.333333333333336 [51.0, 54.0, 37.0]
+mu1:0,mu2:0,kappa:3,dataset_size:40 49.166666666666664 [62.5, 47.5, 37.5]
+mu1:0,mu2:0,kappa:3,dataset_size:8 54.166666666666664 [50.0, 50.0, 62.5]
+
+mu1:0,mu2:3.141592653589793,kappa:7,dataset_size:100 100.0 [100.0, 100.0, 100.0]
+mu1:0,mu2:3.141592653589793,kappa:7,dataset_size:40 100.0 [100.0, 100.0, 100.0]
+mu1:0,mu2:3.141592653589793,kappa:7,dataset_size:8 100.0 [100.0, 100.0, 100.0]
+mu1:0,mu2:3.141592653589793,kappa:3,dataset_size:100 35.333333333333336 [99.0, 1.0, 6.0]
+mu1:0,mu2:3.141592653589793,kappa:3,dataset_size:40 64.16666666666667 [45.0, 97.5, 50.0]
+mu1:0,mu2:3.141592653589793,kappa:3,dataset_size:8 100.0 [100.0, 100.0, 100.0]
+mu1:0,mu2:1.5707963267948966,kappa:7,dataset_size:100 79.0 [43.0, 98.0, 96.0]
+mu1:0,mu2:1.5707963267948966,kappa:7,dataset_size:40 100.0 [100.0, 100.0, 100.0]
+mu1:0,mu2:1.5707963267948966,kappa:7,dataset_size:8 37.5 [50.0, 0.0, 62.5]
+mu1:0,mu2:1.5707963267948966,kappa:3,dataset_size:100 60.333333333333336 [12.0, 82.0, 87.0]
+mu1:0,mu2:1.5707963267948966,kappa:3,dataset_size:40 42.5 [27.500000000000004, 85.0, 15.0]
+mu1:0,mu2:1.5707963267948966,kappa:3,dataset_size:8 75.0 [75.0, 87.5, 62.5]
+mu1:0,mu2:0.7853981633974483,kappa:7,dataset_size:100 86.33333333333333 [89.0, 85.0, 85.0]
+mu1:0,mu2:0.7853981633974483,kappa:7,dataset_size:40 60.0 [20.0, 77.5, 82.5]
+mu1:0,mu2:0.7853981633974483,kappa:7,dataset_size:8 70.83333333333333 [50.0, 87.5, 75.0]
+mu1:0,mu2:0.7853981633974483,kappa:3,dataset_size:100 73.0 [72.0, 76.0, 71.0]
+mu1:0,mu2:0.7853981633974483,kappa:3,dataset_size:40 31.666666666666668 [47.5, 15.0, 32.5]
+mu1:0,mu2:0.7853981633974483,kappa:3,dataset_size:8 45.833333333333336 [12.5, 62.5, 62.5]
+mu1:0,mu2:0,kappa:7,dataset_size:100 49.333333333333336 [52.0, 46.0, 50.0]
+mu1:0,mu2:0,kappa:7,dataset_size:40 47.5 [52.5, 45.0, 45.0]
+mu1:0,mu2:0,kappa:7,dataset_size:8 54.166666666666664 [50.0, 50.0, 62.5]
+mu1:0,mu2:0,kappa:3,dataset_size:100 55.333333333333336 [61.0, 50.0, 55.00000000000001]
+mu1:0,mu2:0,kappa:3,dataset_size:40 51.666666666666664 [52.5, 42.5, 60.0]
+mu1:0,mu2:0,kappa:3,dataset_size:8 45.833333333333336 [37.5, 50.0, 50.0]
+
+mu1:0,mu2:3.141592653589793,kappa:7,dataset_size:100 17.0 [0.0, 51.0, 0.0]
+mu1:0,mu2:3.141592653589793,kappa:7,dataset_size:40 51.666666666666664 [55.00000000000001, 47.5, 52.5]
+mu1:0,mu2:3.141592653589793,kappa:7,dataset_size:8 95.83333333333333 [87.5, 100.0, 100.0]
+mu1:0,mu2:3.141592653589793,kappa:3,dataset_size:100 34.0 [56.99999999999999, 3.0, 42.0]
+mu1:0,mu2:3.141592653589793,kappa:3,dataset_size:40 83.33333333333333 [92.5, 57.49999999999999, 100.0]
+mu1:0,mu2:3.141592653589793,kappa:3,dataset_size:8 83.33333333333333 [87.5, 62.5, 100.0]
+mu1:0,mu2:1.5707963267948966,kappa:7,dataset_size:100 2.3333333333333335 [2.0, 2.0, 3.0]
+mu1:0,mu2:1.5707963267948966,kappa:7,dataset_size:40 49.166666666666664 [2.5, 47.5, 97.5]
+mu1:0,mu2:1.5707963267948966,kappa:7,dataset_size:8 83.33333333333333 [62.5, 87.5, 100.0]
+mu1:0,mu2:1.5707963267948966,kappa:3,dataset_size:100 18.666666666666668 [14.000000000000002, 33.0, 9.0]
+mu1:0,mu2:1.5707963267948966,kappa:3,dataset_size:40 46.666666666666664 [60.0, 57.49999999999999, 22.5]
+mu1:0,mu2:1.5707963267948966,kappa:3,dataset_size:8 75.0 [100.0, 62.5, 62.5]
+mu1:0,mu2:0.7853981633974483,kappa:7,dataset_size:100 83.0 [76.0, 87.0, 86.0]
+mu1:0,mu2:0.7853981633974483,kappa:7,dataset_size:40 86.66666666666667 [87.5, 85.0, 87.5]
+mu1:0,mu2:0.7853981633974483,kappa:7,dataset_size:8 58.333333333333336 [50.0, 25.0, 100.0]
+mu1:0,mu2:0.7853981633974483,kappa:3,dataset_size:100 72.66666666666667 [76.0, 69.0, 73.0]
+mu1:0,mu2:0.7853981633974483,kappa:3,dataset_size:40 58.333333333333336 [75.0, 52.5, 47.5]
+mu1:0,mu2:0.7853981633974483,kappa:3,dataset_size:8 58.333333333333336 [37.5, 62.5, 75.0]
+mu1:0,mu2:0,kappa:7,dataset_size:100 48.666666666666664 [47.0, 54.0, 45.0]
+mu1:0,mu2:0,kappa:7,dataset_size:40 40.833333333333336 [22.5, 40.0, 60.0]
+mu1:0,mu2:0,kappa:7,dataset_size:8 41.666666666666664 [62.5, 37.5, 25.0]
+mu1:0,mu2:0,kappa:3,dataset_size:100 51.0 [52.0, 53.0, 48.0]
+mu1:0,mu2:0,kappa:3,dataset_size:40 52.5 [52.5, 47.5, 57.49999999999999]
+mu1:0,mu2:0,kappa:3,dataset_size:8 54.166666666666664 [50.0, 75.0, 37.5]
+
+mu1:0,mu2:3.141592653589793,kappa:7,dataset_size:100 0.0 [0.0, 0.0, 0.0]
+mu1:0,mu2:3.141592653589793,kappa:7,dataset_size:40 0.0 [0.0, 0.0, 0.0]
+mu1:0,mu2:3.141592653589793,kappa:7,dataset_size:8 91.66666666666667 [87.5, 87.5, 100.0]
+mu1:0,mu2:3.141592653589793,kappa:3,dataset_size:100 87.0 [97.0, 66.0, 98.0]
+mu1:0,mu2:3.141592653589793,kappa:3,dataset_size:40 82.5 [57.49999999999999, 92.5, 97.5]
+mu1:0,mu2:3.141592653589793,kappa:3,dataset_size:8 83.33333333333333 [87.5, 75.0, 87.5]
+mu1:0,mu2:1.5707963267948966,kappa:7,dataset_size:100 44.0 [61.0, 67.0, 4.0]
+mu1:0,mu2:1.5707963267948966,kappa:7,dataset_size:40 77.5 [35.0, 97.5, 100.0]
+mu1:0,mu2:1.5707963267948966,kappa:7,dataset_size:8 25.0 [75.0, 0.0, 0.0]
+mu1:0,mu2:1.5707963267948966,kappa:3,dataset_size:100 36.666666666666664 [14.000000000000002, 87.0, 9.0]
+mu1:0,mu2:1.5707963267948966,kappa:3,dataset_size:40 26.666666666666668 [7.5, 7.5, 65.0]
+mu1:0,mu2:1.5707963267948966,kappa:3,dataset_size:8 62.5 [87.5, 100.0, 0.0]
+mu1:0,mu2:0.7853981633974483,kappa:7,dataset_size:100 43.333333333333336 [21.0, 80.0, 28.999999999999996]
+mu1:0,mu2:0.7853981633974483,kappa:7,dataset_size:40 42.5 [22.5, 52.5, 52.5]
+mu1:0,mu2:0.7853981633974483,kappa:7,dataset_size:8 58.333333333333336 [50.0, 75.0, 50.0]
+mu1:0,mu2:0.7853981633974483,kappa:3,dataset_size:100 47.333333333333336 [77.0, 37.0, 28.000000000000004]
+mu1:0,mu2:0.7853981633974483,kappa:3,dataset_size:40 38.333333333333336 [35.0, 52.5, 27.500000000000004]
+mu1:0,mu2:0.7853981633974483,kappa:3,dataset_size:8 58.333333333333336 [75.0, 62.5, 37.5]
+mu1:0,mu2:0,kappa:7,dataset_size:100 41.333333333333336 [40.0, 42.0, 42.0]
+mu1:0,mu2:0,kappa:7,dataset_size:40 57.5 [57.49999999999999, 50.0, 65.0]
+mu1:0,mu2:0,kappa:7,dataset_size:8 58.333333333333336 [62.5, 50.0, 62.5]
+mu1:0,mu2:0,kappa:3,dataset_size:100 52.666666666666664 [55.00000000000001, 50.0, 53.0]
+mu1:0,mu2:0,kappa:3,dataset_size:40 54.166666666666664 [55.00000000000001, 55.00000000000001, 52.5]
+mu1:0,mu2:0,kappa:3,dataset_size:8 54.166666666666664 [62.5, 50.0, 50.0]
+
+mu1:0,mu2:3.141592653589793,kappa:7,dataset_size:100 54.333333333333336 [54.0, 55.00000000000001, 54.0]
+mu1:0,mu2:3.141592653589793,kappa:7,dataset_size:40 0.0 [0.0, 0.0, 0.0]
+mu1:0,mu2:3.141592653589793,kappa:7,dataset_size:8 95.83333333333333 [100.0, 87.5, 100.0]
+mu1:0,mu2:3.141592653589793,kappa:3,dataset_size:100 37.666666666666664 [52.0, 57.99999999999999, 3.0]
+mu1:0,mu2:3.141592653589793,kappa:3,dataset_size:40 4.166666666666667 [0.0, 7.5, 5.0]
+mu1:0,mu2:3.141592653589793,kappa:3,dataset_size:8 66.66666666666667 [62.5, 50.0, 87.5]
+mu1:0,mu2:1.5707963267948966,kappa:7,dataset_size:100 4.0 [3.0, 5.0, 4.0]
+mu1:0,mu2:1.5707963267948966,kappa:7,dataset_size:40 31.666666666666668 [5.0, 87.5, 2.5]
+mu1:0,mu2:1.5707963267948966,kappa:7,dataset_size:8 45.833333333333336 [87.5, 0.0, 50.0]
+mu1:0,mu2:1.5707963267948966,kappa:3,dataset_size:100 35.333333333333336 [11.0, 7.000000000000001, 88.0]
+mu1:0,mu2:1.5707963267948966,kappa:3,dataset_size:40 45.0 [2.5, 47.5, 85.0]
+mu1:0,mu2:1.5707963267948966,kappa:3,dataset_size:8 62.5 [37.5, 87.5, 62.5]
+mu1:0,mu2:0.7853981633974483,kappa:7,dataset_size:100 18.0 [21.0, 18.0, 15.0]
+mu1:0,mu2:0.7853981633974483,kappa:7,dataset_size:40 78.33333333333333 [67.5, 87.5, 80.0]
+mu1:0,mu2:0.7853981633974483,kappa:7,dataset_size:8 50.0 [62.5, 62.5, 25.0]
+mu1:0,mu2:0.7853981633974483,kappa:3,dataset_size:100 30.0 [35.0, 25.0, 30.0]
+mu1:0,mu2:0.7853981633974483,kappa:3,dataset_size:40 50.833333333333336 [60.0, 50.0, 42.5]
+mu1:0,mu2:0.7853981633974483,kappa:3,dataset_size:8 41.666666666666664 [25.0, 62.5, 37.5]
+mu1:0,mu2:0,kappa:7,dataset_size:100 46.666666666666664 [49.0, 44.0, 47.0]
+mu1:0,mu2:0,kappa:7,dataset_size:40 49.166666666666664 [37.5, 50.0, 60.0]
+mu1:0,mu2:0,kappa:7,dataset_size:8 54.166666666666664 [50.0, 50.0, 62.5]
+mu1:0,mu2:0,kappa:3,dataset_size:100 49.333333333333336 [52.0, 47.0, 49.0]
+mu1:0,mu2:0,kappa:3,dataset_size:40 50.833333333333336 [50.0, 52.5, 50.0]
+mu1:0,mu2:0,kappa:3,dataset_size:8 45.833333333333336 [50.0, 50.0, 37.5]
+
+nao sabemos a distribuiçao real dos pontos
+'''

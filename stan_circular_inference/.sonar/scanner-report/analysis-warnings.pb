@@ -1,0 +1,3 @@
+r
+iThere are problems with file encoding in the source code. Please check the scanner logs for more details.–çœ¹ó3¼
+²Missing blame information for 13 files. This may lead to some features not working correctly. Please check the analysis logs and refer to <a href="https://docs.sonarsource.com/sonarqube-community-build/analyzing-source-code/scm-integration/" rel="noopener noreferrer" target="_blank">the documentation</a>.óòœ¹ó3

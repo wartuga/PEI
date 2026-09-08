@@ -281,7 +281,7 @@ class BayesianInferenceService:
             return posterior.sample(num_chains=n_chains, num_samples=sample_amount, init=init)
         else:
             return posterior.sample(num_chains=n_chains, num_samples=sample_amount)
-    except Exception as e:
+    except Exception:
         raise TimeoutError("The model timeout during sampling, try reducing the sampling amount or passing inital values!")
 
   def get_values(self, fit, parameters:list[str]) -> dict:
@@ -325,13 +325,11 @@ class BayesianInferenceService:
     """
 
     vals = {p: [] for p in parameters}
-    chains = fit.stan_outputs
 
     for chain in fit.stan_outputs:
         lines = chain.decode('utf-8').strip().split('\n')
         for line in lines:
             data = json.loads(line)
-            values = data['values']
             if data.get('topic') != 'sample':
                 continue
             values = data.get('values')
@@ -339,20 +337,6 @@ class BayesianInferenceService:
                 continue
             for parameter in parameters:
                 vals[parameter].append(values[parameter])
-
-    # for parameter in parameters:
-    #     vals[parameter] = []
-
-    #     for chain in chains:
-    #         lines = chain.decode('utf-8').strip().split('\n')
-
-    #     for line in lines:
-    #         data = json.loads(line)
-    #         values = data['values']
-    #         if data['topic'] == 'sample' and isinstance(values, dict):
-    #             interest_parameter = values[parameter]
-                
-    #             vals[parameter].append(interest_parameter)
     
     return vals
 
@@ -648,7 +632,7 @@ class BayesianInferenceService:
     ax.set_ylim(0, y_max)         # Space for the labels
     ax.grid(True, alpha=0.3)
 
-    plt.title(f'Diagrama de rosas')
+    plt.title('Diagrama de rosas')
     plt.show()
 
   def get_mixture_statistics(self, values, real_attribution:list[int], inferred_attribution:list[int], min_val=None, max_val=None, data_type=DataType.RADS):
@@ -707,7 +691,7 @@ class BayesianInferenceService:
     
     # Validate inputs
     if len(values) != len(real_attribution) or len(values) != len(inferred_attribution):
-        raise ValueError(f"All input arrays must have the same length")
+        raise ValueError("All input arrays must have the same length")
 
     # Determine min and max values
     if min_val is None:
@@ -724,7 +708,6 @@ class BayesianInferenceService:
     filtered_inferred = [inferred_attribution[i] for i in filtered_indices]
 
     size_filtered_real = len(filtered_real)
-    count_total = len(values)
     
     # Calculate accuracy
     correct_predictions = sum(1 for i in range(size_filtered_real) if filtered_real[i] == filtered_inferred[i])
@@ -770,14 +753,16 @@ class BayesianInferenceService:
         The method prints the statistics to the console and does not return a value.
     """
 
+    offset = max(len(str(mixture_statistics['confusion_matrix']['TP'])), len(str(mixture_statistics['confusion_matrix']['FP'])))
+
     print(f"""
       Accuracy: {mixture_statistics['accuracy']}
       Distribution_1_Accuracy: {mixture_statistics['accuracy_dist_1']}
       Distribution_2_Accuracy: {mixture_statistics['accuracy_dist_2']}
       Confusion Matrix:
       ______________| Predicted Values
-      Actual Values | {mixture_statistics['confusion_matrix']['TP']} | {mixture_statistics['confusion_matrix']['FN']}
-                    | {mixture_statistics['confusion_matrix']['FP']} | {mixture_statistics['confusion_matrix']['TN']}
+      Actual Values | {mixture_statistics['confusion_matrix']['TP']:>{offset}} | {mixture_statistics['confusion_matrix']['FN']}
+                    | {mixture_statistics['confusion_matrix']['FP']:>{offset}} | {mixture_statistics['confusion_matrix']['TN']}
       
     """)
   
@@ -858,7 +843,7 @@ class BayesianInferenceService:
     
     # Validate inputs
     if len(values) != len(real_attribution) or len(values) != len(inferred_attribution):
-        raise ValueError(f"All input arrays must have the same length")
+        raise ValueError("All input arrays must have the same length")
     
     # Determine min and max values
     if min_val is None:
@@ -874,8 +859,6 @@ class BayesianInferenceService:
     filtered_values = [normalized_values[i] for i in filtered_indices]
     filtered_real = [real_attribution[i] for i in filtered_indices]
     filtered_inferred = [inferred_attribution[i] for i in filtered_indices]
-
-    size_filtered_real = len(filtered_real)
     
     # Convert to angles
     angles = np.array(filtered_values)
@@ -996,7 +979,7 @@ class BayesianInferenceService:
     fig.text(0.5, 0.08,  # Position at bottom
              f'Total: {count_total} points | Accuracy: {accuracy:.1f}%',
              ha='center', fontsize=12, fontweight='bold',
-             bbox=dict(boxstyle='round,pad=0.5', facecolor='lightyellow', alpha=0.8))
+             bbox={'boxstyle': 'round,pad=0.5', 'facecolor': 'lightyellow', 'alpha': 0.8})
     
     # Distribution counts
     fig.text(0.5, 0.04,  # Below the main stats
@@ -1191,8 +1174,8 @@ class BayesianInferenceService:
             # Apply the shared scale only for the circular graphs
             if share_scale and all_y_max:
                 global_y_max = max(all_y_max)
-                for idx, (ax, param_type) in enumerate(zip(axes_flat[:n_params], parameters_type)):
-                    if param_type and hasattr(ax, '_y_max'):
+                for idx, (ax, parameter_type) in enumerate(zip(axes_flat[:n_params], parameters_type)):
+                    if parameter_type and hasattr(ax, '_y_max'):
                         ax.set_ylim(0, global_y_max)
             if n_params == counter:
                 # Hide the unused subplots
@@ -1200,7 +1183,7 @@ class BayesianInferenceService:
                     axes_flat[idx].set_visible(False)
             
             # Title
-            fig.suptitle(f'Multiple Parameter Visualization', fontsize=14, y=1.02)
+            fig.suptitle('Multiple Parameter Visualization', fontsize=14, y=1.02)
             fig.savefig(f'image{image_counter}.png', dpi=300, bbox_inches='tight')
             image_counter = image_counter + 1
             
@@ -1254,11 +1237,7 @@ class BayesianInferenceService:
         # Save the axes position
         fig = ax.figure
         pos = ax.get_position()
-
         margin = 0.1
-
-        fig = ax.figure
-        pos = ax.get_position()
 
         new_height = pos.height - margin
         

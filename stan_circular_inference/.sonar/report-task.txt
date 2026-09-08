@@ -1,0 +1,6 @@
+projectKey=PEI
+serverUrl=http://172.30.192.1:9000
+serverVersion=26.6.0.123539
+dashboardUrl=http://172.30.192.1:9000/dashboard?id=PEI
+ceTaskId=c3d13269-88e8-47e6-87d8-014dc1022b69
+ceTaskUrl=http://172.30.192.1:9000/api/ce/task?id=c3d13269-88e8-47e6-87d8-014dc1022b69
