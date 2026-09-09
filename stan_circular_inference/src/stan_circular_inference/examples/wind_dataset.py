@@ -12,7 +12,7 @@ import time
 
 def run():
 
-    df = pd.read_csv('datasets/wind_dataset.csv')
+    df = pd.read_csv('src/datasets/wind_dataset.csv')
 
     mu = Uniform(0, 2*np.pi)
     kappa = Exponential(0.1)

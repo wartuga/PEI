@@ -62,7 +62,7 @@ service.circular_graphic(interest_parameter_values['mu'], min_val=0, max_val=2*n
 # file: eddypro_Ane1-50m-run1_full_output_2025-06-29T132103_exp.csv
 # rename to "wind_dataset.csv" and put it in the "datasets" folder
 # read the wind_dataset.csv
-df = pd.read_csv('datasets/wind_dataset.csv')
+df = pd.read_csv('src/datasets/wind_dataset.csv')
 # Filter out missing or invalid values (-9999) and drop remaining NaNs.
 df = df[(df['wind_dir'] != -9999) | (df['wind_speed'] != -9999)].dropna().copy()
 

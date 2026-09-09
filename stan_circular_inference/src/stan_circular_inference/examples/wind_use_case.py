@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from stan_circular_inference.service.bayesian_inference import BayesianInferenceService
 
-df = pd.read_csv('datasets/wind_dataset.csv')
+df = pd.read_csv('src/datasets/wind_dataset.csv')
 df = df[(df['wind_dir'] != -9999) | (df['wind_speed'] != -9999)].dropna().copy()
 
 df['wind_dir'] = np.radians(df['wind_dir']) % (2*np.pi)

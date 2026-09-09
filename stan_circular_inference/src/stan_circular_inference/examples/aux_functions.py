@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import time
 
-df = pd.read_csv('datasets/wind_dataset.csv')
+df = pd.read_csv('src/datasets/wind_dataset.csv')
 
 mu = Uniform(0, 2*np.pi)
 rho = Uniform(-0.1, 0.1)

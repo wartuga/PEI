@@ -49,7 +49,7 @@ def extract_numbers(line):
 
     return numbers
 
-values = format_processed_data(load_data('datasets/processed_data.txt'))
+values = format_processed_data(load_data('src/datasets/processed_data.txt'))
 assert max(values[1]) <= 12, "Star bigger than 12"
 
 model = """
