@@ -60,6 +60,8 @@ Finally, to install the tool's dependency:
 pip install stan-circular-inference
 ```
 
+Latest version in: https://pypi.org/project/stan-circular-inference/0.1.2/
+
 ## Inference Pipeline
 
 The specifics of the `service` module are documented separately in [service](src/stan_circular_inference/service/README.md).
