@@ -66,4 +66,4 @@ The specifics of the `service` module are documented separately in [service](src
 
 ## Probabilistic Models
 
-A comprehensive description of the `xpto` module is provided in [xpto](path/to/module).
+A comprehensive description of the `factories` module is provided in [factories](src/stan_circular_inference/factories/README.md).
