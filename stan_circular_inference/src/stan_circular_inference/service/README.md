@@ -1,6 +1,6 @@
 # Inference Pipeline
 
-This section covers the provided pipeline, `BayesianInferenceService`, and shows how to create it as well as the available methods. At the end of this chapter, there is an example of its complete usage. Para informação mais detalhada sobre qualquer uma das funções, ver [bayesian_inference.py](./src/stan_circular_inference/service/bayesian_inference.py)
+This section covers the provided pipeline, `BayesianInferenceService`, and shows how to create it as well as the available methods. At the end of this chapter, there is an example of its complete usage. For more detailed information about any of the functions, see [bayesian_inference.py](./src/stan_circular_inference/service/bayesian_inference.py)
 
 ## Data types
 
